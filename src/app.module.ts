@@ -11,15 +11,19 @@ import { JwtService } from '@nestjs/jwt';
 // GLOBAL_IMPORTS
 import { HubspotModule } from '@libs/hubspot/hubspot.module';
 import { AwsSqsModule } from '@libs/aws_sqs/awsSqs.module';
+import { OdooModule } from '@libs/odoo/odoo.module';
 import { AuthGuard } from '@common/guard';
 import { LoggerMiddleware } from '@common/middlewares';
 
 // CONTROLLER_IMPORTS
 import { HubspotModule as HubspotControllerModule } from '@modules/hubspot/hubspot.module';
 import { HealthModule } from '@modules/health/health.module';
+import { OdooModule as OdooIngrationModule } from '@modules/odoo/odoo.module';
 
 import { RATE_LIMIT_REQUESTS, RATE_LIMIT_TIME } from '@common/constants';
 import { JwtStrategy } from '@common/stratagies';
+
+import { DatabaseModule } from '@common/database/database.module';
 
 @Module({
   imports: [
@@ -36,6 +40,9 @@ import { JwtStrategy } from '@common/stratagies';
     }),
     // DM_IMPORTS_MODULES
     // IMPORTS_MODULES
+    OdooModule,
+    OdooIngrationModule,
+    DatabaseModule,
     HubspotModule,
     HubspotControllerModule,
     AwsSqsModule,
@@ -58,6 +65,6 @@ import { JwtStrategy } from '@common/stratagies';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(LoggerMiddleware).forRoutes({ path: '*', method: RequestMethod.ALL });
+    consumer.apply(LoggerMiddleware).forRoutes({ path: '*path', method: RequestMethod.ALL });
   }
 }

@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
-import { HubspotAuthGuard, HubspotSignatureService } from '@common/guard';
-
 import { HubspotController } from './hubspot.controller';
 import { HubspotService } from './hubspot.service';
+import { DatabaseModule } from '@common/database/database.module';
 
 @Module({
-  imports: [],
+  imports: [DatabaseModule],
   controllers: [HubspotController],
-  providers: [HubspotService, HubspotAuthGuard, HubspotSignatureService],
+  providers: [HubspotService],
+  exports: [HubspotService],
 })
 export class HubspotModule {}

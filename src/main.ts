@@ -5,13 +5,7 @@ import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { ConfigService } from '@nestjs/config';
 import crypto from 'crypto';
-import {
-  Request,
-  Response,
-  NextFunction,
-  CookieOptions,
-  RequestHandler,
-} from 'express';
+import { Request, Response, NextFunction, CookieOptions, RequestHandler } from 'express';
 import { Logger, ValidationPipe } from '@nestjs/common';
 
 // DB_IMPORTS
@@ -91,9 +85,7 @@ async function bootstrap() {
   app.useGlobalFilters(new HttpExceptionFilter());
 
   await app.listen(port);
-  Logger.log(
-    `🚀 padra-clinic-odoo-integration Express app server running on port ${port} in ${nodeEnv} mode`,
-  );
+  Logger.log(`🚀 padra-clinic-odoo-integration Express app server running on port ${port} in ${nodeEnv} mode`);
 }
 
 void bootstrap();

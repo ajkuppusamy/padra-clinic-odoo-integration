@@ -1,10 +1,14 @@
-import { Body, Controller, HttpCode, Post, UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
-import { HubspotAuthGuard } from '@common/guard';
+import { Body, Controller, HttpCode, HttpStatus, Post, UsePipes, ValidationPipe } from '@nestjs/common';
 import { HubspotService } from './hubspot.service';
-import { HubspotWebhookDto } from './dto';
+import { QuotationFlow } from './dto/quotation-flow.dto';
 
-@UseGuards(HubspotAuthGuard)
 @Controller('hubspot')
 export class HubspotController {
   constructor(private readonly hubspotService: HubspotService) {}
+
+  @Post('quotation-flow')
+  @HttpCode(HttpStatus.OK)
+  async sendQuotationFlow(@Body() body: QuotationFlow) {
+    return this.hubspotService.sendQuotationFlow(body);
+  }
 }
