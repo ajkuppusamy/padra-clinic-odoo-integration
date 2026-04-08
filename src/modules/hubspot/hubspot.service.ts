@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { QueueRepository, RequestRepository, ResponseRepository } from '@common/repositories';
 import { QueueStatus, QueueType, Flow, SourceType, RequestType, RequestStatus, ResponseStatus } from '@common/entities';
 import { HubspotObjects } from '@common/enums';
+import { SimplePublicObject, SimplePublicObjectId } from '@hubspot/api-client/lib/codegen/crm/objects';
 
 @Injectable()
 export class HubspotService {
@@ -112,7 +113,17 @@ export class HubspotService {
     };
   }
 
-  private async fetchAssociatedObjects(lineItemIds, contactIds, quoteIds, dealId, jobId) {
+  private async fetchAssociatedObjects(
+    lineItemIds: SimplePublicObjectId[],
+    contactIds: SimplePublicObjectId[],
+    quoteIds: SimplePublicObjectId[],
+    dealId: string,
+    jobId: string,
+  ): Promise<{
+    lineItems: SimplePublicObject[];
+    contacts: SimplePublicObject[];
+    quotes: SimplePublicObject[];
+  }> {
     const [lineItems, contacts, quotes] = await Promise.all([
       this.fetchBatch(HubspotObjects.LINE_ITEMS, lineItemIds, RequestType.FETCH_LINEITEMS, dealId, jobId),
       this.fetchBatch(HubspotObjects.CONTACTS, contactIds, RequestType.FETCH_CONTACT, dealId, jobId),
@@ -122,7 +133,7 @@ export class HubspotService {
     return { lineItems, contacts, quotes };
   }
 
-  private async fetchBatch(objectType, ids, requestType, externalId, jobId) {
+  private async fetchBatch(objectType: HubspotObjects, ids: SimplePublicObjectId[], requestType: RequestType, externalId: string, jobId: string): Promise<SimplePublicObject[]> {
     if (!ids.length) return [];
 
     const result = await this.executeTrackedRequest(jobId, requestType, externalId, `/batch`, 'POST', { inputs: ids }, () =>
@@ -133,7 +144,7 @@ export class HubspotService {
       }),
     );
 
-    return result?.results || [];
+    return result?.results ?? [];
   }
 
   public async updateQuoteById(jobId: string, quoteId: string, properties: Record<string, any>) {

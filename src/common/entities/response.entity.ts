@@ -14,26 +14,26 @@ export enum ResponseStatus {
 @Index(['createdAt'])
 export class Response extends BaseModel {
   @Column({ name: 'request_id', type: 'uuid' })
-  requestId: string;
+  requestId!: string;
 
   @Column({ name: 'job_id', type: 'uuid' })
-  jobId: string;
+  jobId!: string;
 
   @Column({ name: 'status_code', type: 'integer' })
-  statusCode: number;
+  statusCode!: number;
 
   @Column({ name: 'status', type: 'enum', enum: ResponseStatus })
-  status: ResponseStatus;
+  status!: ResponseStatus;
 
   @Column({ name: 'data', type: 'jsonb', nullable: true })
   data: any;
 
   @Column({ name: 'error', type: 'jsonb', nullable: true })
-  error: any;
+  error!: any;
 
   @Column({ name: 'duration_ms', type: 'integer' })
-  durationMs: number;
+  durationMs!: number;
 
   @Column({ name: 'received_at', type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
-  receivedAt: Date;
+  receivedAt!: Date;
 }

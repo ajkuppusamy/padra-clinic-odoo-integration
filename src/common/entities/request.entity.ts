@@ -30,32 +30,32 @@ export enum RequestStatus {
 @Index(['requestType'])
 export class Request extends BaseModel {
   @Column({ name: 'job_id', type: 'uuid' })
-  jobId: string;
+  jobId!: string;
 
   @Column({ name: 'request_type', type: 'enum', enum: RequestType })
-  requestType: RequestType;
+  requestType!: RequestType;
 
   @Column({ name: 'external_id', type: 'varchar', length: 255, nullable: true })
-  externalId: string | null;
+  externalId!: string | null;
 
   @Column({ name: 'target_system', type: 'varchar', length: 50 })
-  targetSystem: SourceType; // 'hubspot' or 'odoo'
+  targetSystem!: SourceType; // 'hubspot' or 'odoo'
 
   @Column({ name: 'endpoint', type: 'varchar', length: 500 })
-  endpoint: string;
+  endpoint!: string;
 
   @Column({ name: 'method', type: 'varchar', length: 10, default: 'POST' })
-  method: string;
+  method!: string;
 
   @Column({ name: 'payload', type: 'jsonb' })
-  payload: any;
+  payload!: any;
 
   @Column({ name: 'status', type: 'enum', enum: RequestStatus, default: RequestStatus.PENDING })
-  status: RequestStatus;
+  status!: RequestStatus;
 
   @Column({ name: 'retry_count', type: 'integer', default: 0 })
-  retryCount: number;
+  retryCount!: number;
 
   @Column({ name: 'sent_at', type: 'timestamptz', nullable: true })
-  sentAt: Date | null;
+  sentAt!: Date | null;
 }

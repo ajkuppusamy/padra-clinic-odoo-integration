@@ -3,6 +3,7 @@ import { OdooService as OdooLibService } from '@libs/odoo/odoo.service';
 import { RequestRepository, ResponseRepository } from '@common/repositories';
 import { CreateContactRequest, CreateContactResponse, CreateQuotationRequest, ISO8601Date, UpdateContactRequest } from '@libs/odoo/interfaces';
 import { RequestType, RequestStatus, ResponseStatus, SourceType } from '@common/entities';
+import { OdooWebhookEvent } from './enums/webhook-event-enum';
 
 @Injectable()
 export class OdooService {
@@ -14,15 +15,15 @@ export class OdooService {
     private readonly responseRespository: ResponseRepository,
   ) {}
 
-  async handlingWebhook(eventName: string, body: Record<string, any>) {
+  async handlingWebhook(eventName: string | OdooWebhookEvent, body: Record<string, any>) {
     switch (eventName) {
-      case 'quotation':
+      case OdooWebhookEvent.QUOTATION_STATUS_UPDATE:
         return this.handleQuotation(body);
 
-      case 'payment':
+      case OdooWebhookEvent.PAYMENT_CREATED:
         return this.handlePayment(body);
 
-      case 'invoice':
+      case OdooWebhookEvent.INVOICE_CREATED:
         return this.handleInvoice(body);
 
       default:
