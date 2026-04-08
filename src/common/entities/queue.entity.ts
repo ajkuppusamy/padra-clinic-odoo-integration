@@ -12,6 +12,7 @@ export enum QueueStatus {
   PROCESSING = 'processing',
   COMPLETED = 'completed',
   FAILED = 'failed',
+  SKIPPED = 'skipped',
 }
 
 export enum SourceType {

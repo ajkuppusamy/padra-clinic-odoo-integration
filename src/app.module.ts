@@ -24,6 +24,7 @@ import { RATE_LIMIT_REQUESTS, RATE_LIMIT_TIME } from '@common/constants';
 import { JwtStrategy } from '@common/stratagies';
 
 import { DatabaseModule } from '@common/database/database.module';
+import { IntegrationModule } from '@modules/integration/integration.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { DatabaseModule } from '@common/database/database.module';
     // IMPORTS_MODULES
     OdooModule,
     OdooIngrationModule,
+    IntegrationModule,
     DatabaseModule,
     HubspotModule,
     HubspotControllerModule,

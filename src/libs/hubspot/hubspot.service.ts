@@ -1,7 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Client as HubspotClient } from '@hubspot/api-client';
-import { SimplePublicObject, SimplePublicObjectInput, SimplePublicObjectWithAssociations } from '@hubspot/api-client/lib/codegen/crm/companies';
+import {
+  BatchReadInputSimplePublicObjectId,
+  BatchResponseSimplePublicObject,
+  CollectionResponseWithTotalSimplePublicObjectForwardPaging,
+  PublicObjectSearchRequest,
+  SimplePublicObject,
+  SimplePublicObjectInput,
+  SimplePublicObjectWithAssociations,
+} from '@hubspot/api-client/lib/codegen/crm/companies';
 import { CollectionResponseMultiAssociatedObjectWithLabelForwardPaging } from '@hubspot/api-client/lib/codegen/crm/associations/v4';
 import { HubspotObjects } from '@common/enums';
 import PQueue from 'p-queue';
@@ -117,6 +125,86 @@ export class HubspotService {
       } catch (error) {
         this.logger.error(`Failed to fetch associations from ${fromObjectType} (${fromObjectId}) to ${toObjectType}: ${error?.message}`, error?.stack);
         return [];
+      }
+    });
+  }
+
+  /**
+   * Searches HubSpot CRM objects using the provided search request with optional pagination support.
+   *
+   * This method executes the search operation through an internal queue to control concurrency
+   * and handle rate limits. It supports cursor-based pagination using the `after` parameter
+   * and allows limiting the number of records per request.
+   *
+   * @param {HubspotObjects} objectType - The type of HubSpot object to search (e.g., contacts, deals, products).
+   * @param {PublicObjectSearchRequest} publicObjectSearchRequest - The search request payload containing filters, properties, and sort options.
+   * @param {Object} [options] - Optional pagination parameters.
+   * @param {string} [options.after] - Cursor token to fetch the next set of results.
+   * @param {number} [options.limit] - Maximum number of records to retrieve per request (max: 100).
+   *
+   * @returns {Promise<CollectionResponseWithTotalSimplePublicObjectForwardPaging>}
+   * A promise resolving to the paginated response containing matched objects, total count, and paging information.
+   *
+   * @throws {Error} Throws an error if the search operation fails.
+   */
+  async searchObject(
+    objectType: HubspotObjects,
+    publicObjectSearchRequest: PublicObjectSearchRequest,
+    options?: { after?: string; limit?: number },
+  ): Promise<CollectionResponseWithTotalSimplePublicObjectForwardPaging> {
+    return this.queue.add(async () => {
+      try {
+        if (options?.after) {
+          publicObjectSearchRequest.after = options.after;
+        }
+
+        if (options?.limit) {
+          publicObjectSearchRequest.limit = options.limit;
+        }
+
+        this.logger.debug(
+          `Searching ${objectType} | after: ${options?.after || 'none'} | limit: ${options?.limit || 'default'} | filters: ${JSON.stringify(publicObjectSearchRequest?.filterGroups)}`,
+        );
+
+        const result = await this.hubspotClient.crm.objects.searchApi.doSearch(objectType, publicObjectSearchRequest);
+
+        this.logger.log(`Fetched ${objectType} | total: ${result?.total} | returned: ${result?.results?.length} | nextAfter: ${result?.paging?.next?.after}`);
+
+        return result;
+      } catch (error) {
+        this.logger.error(`Failed to search ${objectType}: ${error?.message}`, error?.stack);
+        throw error;
+      }
+    });
+  }
+
+  /**
+   * Fetches multiple HubSpot objects in a single batch request using their IDs.
+   *
+   * This method leverages HubSpot's Batch Read API to retrieve objects by providing
+   * a list of object IDs. It executes the request through an internal queue to
+   * control concurrency and rate limits.
+   *
+   * @param {HubspotObjects} objectType - The type of HubSpot object to retrieve (e.g., contacts, deals, companies).
+   * @param {BatchReadInputSimplePublicObjectId} batchReadInputSimplePublicObjectId - Payload containing the list of object IDs to be fetched.
+   *
+   * @returns {Promise<BatchResponseSimplePublicObject>} A promise that resolves to the batch response containing the retrieved objects.
+   *
+   * @throws {Error} Throws an error if the batch fetch operation fails.
+   */
+  async getBatchObject(objectType: HubspotObjects, batchReadInputSimplePublicObjectId: BatchReadInputSimplePublicObjectId): Promise<BatchResponseSimplePublicObject> {
+    return this.queue.add(async () => {
+      try {
+        this.logger.debug(`Batch fetching ${objectType} | count: ${batchReadInputSimplePublicObjectId.inputs.length}`);
+
+        const result = await this.hubspotClient.crm.objects.batchApi.read(objectType, batchReadInputSimplePublicObjectId);
+
+        this.logger.log(`Fetched ${objectType} | returned: ${result?.results?.length}`);
+
+        return result as BatchResponseSimplePublicObject;
+      } catch (error) {
+        this.logger.error(`Failed to batch fetch ${objectType}: ${error?.message}`, error?.stack);
+        throw error;
       }
     });
   }
