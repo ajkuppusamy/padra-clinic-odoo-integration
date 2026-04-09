@@ -12,6 +12,7 @@ export enum QueueStatus {
   PROCESSING = 'processing',
   COMPLETED = 'completed',
   FAILED = 'failed',
+  SKIPPED = 'skipped',
 }
 
 export enum SourceType {
@@ -33,43 +34,43 @@ export enum Flow {
 @Index(['processedAt'])
 export class Queue extends BaseModel {
   @Column({ name: 'job_id', type: 'uuid', unique: true })
-  jobId: string;
+  jobId!: string;
 
   @Column({ name: 'queue_type', type: 'enum', enum: QueueType })
-  queueType: QueueType;
+  queueType!: QueueType;
 
   @Column({ name: 'source_type', type: 'enum', enum: SourceType })
-  sourceType: SourceType;
+  sourceType!: SourceType;
 
   @Column({ name: 'flow', type: 'enum', enum: Flow })
-  flow: Flow;
+  flow!: Flow;
 
   @Column({ name: 'external_id', type: 'varchar', length: 255, nullable: true })
-  externalId: string | null;
+  externalId!: string | null;
 
   @Column({ name: 'payload', type: 'jsonb' })
   payload: any;
 
   @Column({ name: 'status', type: 'enum', enum: QueueStatus, default: QueueStatus.QUEUED })
-  status: QueueStatus;
+  status!: QueueStatus;
 
   @Column({ name: 'attempts', type: 'integer', default: 0 })
-  attempts: number;
+  attempts!: number;
 
   @Column({ name: 'max_attempts', type: 'integer', default: 3 })
-  maxAttempts: number;
+  maxAttempts!: number;
 
   @Column({ name: 'error', type: 'text', nullable: true })
-  error: string | null;
+  error!: string | null;
 
   @Column({ name: 'processed_at', type: 'timestamptz', nullable: true })
-  processedAt: Date | null;
+  processedAt!: Date | null;
 
   @Column({ name: 'priority', type: 'integer', default: 1 })
-  priority: number;
+  priority!: number;
 
   @Column({ name: 'scheduled_for', type: 'timestamptz', nullable: true })
-  scheduledFor: Date | null;
+  scheduledFor!: Date | null;
 
   @Column({ name: 'metadata', type: 'jsonb', nullable: true })
   metadata: any; // sqs_message_id, receipt_handle, etc.

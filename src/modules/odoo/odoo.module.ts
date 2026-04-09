@@ -1,9 +1,13 @@
-import { Module, DynamicModule, Provider, Global } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { OdooService } from './odoo.service';
+import { OdooController } from './odoo.controller';
+import { DatabaseModule } from '@common/database/database.module';
+import { HubspotModule } from '@modules/hubspot/hubspot.module';
+import { HubspotService } from '@modules/hubspot/hubspot.service';
 
-@Global()
 @Module({
-  imports: [],
+  imports: [DatabaseModule],
+  controllers: [OdooController],
   providers: [OdooService],
   exports: [OdooService],
 })

@@ -7,7 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import crypto from 'crypto';
 import { Request, Response, NextFunction, CookieOptions, RequestHandler } from 'express';
 import { Logger, ValidationPipe } from '@nestjs/common';
-
+import * as bodyParser from 'body-parser';
 // DB_IMPORTS
 
 import { AppModule } from './app.module';
@@ -83,6 +83,14 @@ async function bootstrap() {
   );
 
   app.useGlobalFilters(new HttpExceptionFilter());
+
+  app.use(
+    bodyParser.json({
+      verify: (req: any, res, buf) => {
+        req.rawBody = buf;
+      },
+    }),
+  );
 
   await app.listen(port);
   Logger.log(`🚀 padra-clinic-odoo-integration Express app server running on port ${port} in ${nodeEnv} mode`);

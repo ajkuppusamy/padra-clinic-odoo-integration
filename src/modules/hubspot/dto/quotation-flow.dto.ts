@@ -1,4 +1,4 @@
-import { IsNumber, IsEnum } from 'class-validator';
+import { IsNumber, IsEnum, isNumber } from 'class-validator';
 
 export enum QuotationFlowType {
   ONLINE = 'online',
@@ -13,5 +13,8 @@ export class QuotationFlow {
   amount: number;
 
   @IsEnum(QuotationFlowType)
-  quationFlow: QuotationFlowType;
+  quotationFlow: QuotationFlowType;
+
+  @IsNumber()
+  quoteId: number;
 }
