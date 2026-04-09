@@ -1,7 +1,9 @@
 import { QueueStatus } from '@common/entities';
 import { QueueRepository } from '@common/repositories';
+import { SimplePublicObject } from '@hubspot/api-client/lib/codegen/crm/companies';
 import { QuotationFlowType } from '@modules/hubspot/dto/quotation-flow.dto';
 import { HubspotService } from '@modules/hubspot/hubspot.service';
+import { ProductCreateEvent, ProductUpdateEvent } from '@modules/odoo/interfaces/event.interfaces';
 import { OdooService } from '@modules/odoo/odoo.service';
 import { Injectable, Logger } from '@nestjs/common';
 
@@ -46,7 +48,6 @@ export class IntegrationService {
     this.logger.log(`[${context}] Started`, { jobId, dealId });
 
     try {
-      // 1. Fetch deal metadata
       const dealsMetaData = await this.hubspotService.getDealDetails(dealId, jobId);
 
       const contacts = dealsMetaData?.contacts ?? [];
@@ -108,7 +109,7 @@ export class IntegrationService {
   /**
    * Process contacts and return first Odoo contactId
    */
-  private async processContacts(contacts: any[], jobId: string): Promise<string | null> {
+  private async processContacts(contacts: SimplePublicObject[], jobId: string): Promise<string | null> {
     let odooContactId: string | null = null;
 
     for (const contact of contacts) {
@@ -180,5 +181,12 @@ export class IntegrationService {
     await this.queueRepository.updateStatus(jobId, QueueStatus.SKIPPED);
 
     throw new Error(reason);
+  }
+
+  public async handlingProductProcess(jobId: string, properties: ProductCreateEvent | ProductUpdateEvent, odooEvent: string) {
+    if (!properties.product_id) return await this.handleSkip(jobId, this.handlingProductProcess.name, 'Odoo Product Id Not Found');
+    const product = await this.hubspotService.processProducts(jobId, properties, odooEvent);
+    this.logger.debug(`HubSpot Product${JSON.stringify(product)}`);
+    await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
   }
 }

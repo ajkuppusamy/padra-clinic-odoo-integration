@@ -8,6 +8,7 @@ import {
   PublicObjectSearchRequest,
   SimplePublicObject,
   SimplePublicObjectInput,
+  SimplePublicObjectInputForCreate,
   SimplePublicObjectWithAssociations,
 } from '@hubspot/api-client/lib/codegen/crm/companies';
 import { CollectionResponseMultiAssociatedObjectWithLabelForwardPaging } from '@hubspot/api-client/lib/codegen/crm/associations/v4';
@@ -57,7 +58,7 @@ export class HubspotService {
    * @param objectType - Type of Hubspot object (e.g., contacts, companies, deals)
    * @param objectId - Unique identifier of the object
    * @param properties - Optional array of property names to fetch
-   * @returns Promise resolving to the Hubspot object with associations
+   * @returns {Promise<SimplePublicObjectWithAssociations> }
    */
   async getHubspotObjectData<T>(objectType: HubspotObjects, objectId: string, properties: string[] = []): Promise<SimplePublicObjectWithAssociations> {
     return await this.queue.add(async () => {
@@ -73,7 +74,7 @@ export class HubspotService {
    * @param objectType - Type of Hubspot object to update
    * @param objectId - Unique identifier of the object to update
    * @param properties - Key-value pair of properties to update
-   * @returns Promise resolving to the updated object
+   * @returns {Prmoise<SimplePublicObjectWithAssociations>}
    * @throws Error if the update operation fails
    */
   async updateHubspotObject(objectType: HubspotObjects, objectId: string, properties: SimplePublicObjectInput['properties']): Promise<SimplePublicObject> {
@@ -84,7 +85,37 @@ export class HubspotService {
         this.logger.log(`Successfully updated ${objectType} (ID: ${objectId})`);
         return result;
       } catch (error) {
-        this.logger.error(`Failed to update ${objectType} (ID: ${objectId}): ${error?.message}`, error?.stack);
+        this.logger.error(`Failed to update ${objectType} (ID: ${objectId}): ${error?.['message']}`, error?.['stack']);
+        throw error;
+      }
+    });
+  }
+
+  /**
+   * Creates a new object in HubSpot CRM for the specified object type.
+   *
+   * This method queues the creation operation to ensure proper request handling
+   * and retry logic. It automatically handles logging for debug, success, and
+   * error scenarios. The operation is performed asynchronously and returns
+   * the created HubSpot object upon successful creation.
+   *
+   * @param {HubspotObjects} objectType - The type of HubSpot CRM object to create (e.g., 'contacts', 'companies', 'deals', 'tickets')
+   * @param {SimplePublicObjectInputForCreate} properties - The properties data for creating the HubSpot object, containing field values and associations
+   *
+   * @returns {Promise<SimplePublicObject>} A promise that resolves to the created HubSpot object with all its properties and metadata
+   *
+   * @throws {Error} Throws an error if the HubSpot API call fails, including network issues, validation errors, or authentication problems
+   *
+   */
+  async createHubspotObject(objectType: HubspotObjects, properties: SimplePublicObjectInputForCreate): Promise<SimplePublicObject> {
+    return await this.queue.add(async () => {
+      try {
+        this.logger.debug(`Create ${objectType} )`);
+        const result = await this.hubspotClient.crm.objects.basicApi.create(objectType, properties);
+        this.logger.log(`Successfully updated ${objectType} (ID: ${result.id})`);
+        return result;
+      } catch (error) {
+        this.logger.error(`Failed to update ${objectType}: ${error?.['message']}`, error?.['stack']);
         throw error;
       }
     });
@@ -96,7 +127,7 @@ export class HubspotService {
    * @param fromObjectType - Source object type
    * @param fromObjectId - Source object identifier
    * @param toObjectType - Target object type to fetch associations for
-   * @returns Promise resolving to array of associated objects
+   * @returns {Promise<CollectionResponseMultiAssociatedObjectWithLabelForwardPaging['results']> }
    */
   async getHubspotAssociations(
     fromObjectType: HubspotObjects,
@@ -123,7 +154,7 @@ export class HubspotService {
         this.logger.log(`Successfully fetched ${allResults.length} associations from ${fromObjectType} (${fromObjectId}) to ${toObjectType}`);
         return allResults;
       } catch (error) {
-        this.logger.error(`Failed to fetch associations from ${fromObjectType} (${fromObjectId}) to ${toObjectType}: ${error?.message}`, error?.stack);
+        this.logger.error(`Failed to fetch associations from ${fromObjectType} (${fromObjectId}) to ${toObjectType}: ${error?.['message']}`, error?.['stack']);
         return [];
       }
     });
@@ -172,7 +203,7 @@ export class HubspotService {
 
         return result;
       } catch (error) {
-        this.logger.error(`Failed to search ${objectType}: ${error?.message}`, error?.stack);
+        this.logger.error(`Failed to search ${objectType}: ${error?.['message']}`, error?.['stack']);
         throw error;
       }
     });
@@ -203,7 +234,7 @@ export class HubspotService {
 
         return result as BatchResponseSimplePublicObject;
       } catch (error) {
-        this.logger.error(`Failed to batch fetch ${objectType}: ${error?.message}`, error?.stack);
+        this.logger.error(`Failed to batch fetch ${objectType}: ${error?.['message']}`, error?.['stack']);
         throw error;
       }
     });

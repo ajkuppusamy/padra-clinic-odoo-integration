@@ -7,7 +7,7 @@ export const HUBSPOT_OBJECT_PROPERTIES: Record<string, string[]> = {
 
   line_items: ['name', 'quantity', 'price', 'amount', 'hs_product_id', 'createdate', 'hs_object_id', 'odoo_product_id'],
 
-  products: ['name', 'description', 'price', 'hs_sku', 'hs_cost_of_goods_sold', 'createdate', 'hs_object_id', 'hs_cost_of_goods_sold'],
+  products: ['name', 'description', 'price', 'hs_sku', 'hs_cost_of_goods_sold', 'createdate', 'hs_object_id', 'hs_cost_of_goods_sold', 'odoo_product_id'],
 
   tickets: ['subject', 'content', 'hs_ticket_priority', 'hs_pipeline', 'hs_pipeline_stage', 'createdate', 'hs_object_id'],
 

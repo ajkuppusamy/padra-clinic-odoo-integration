@@ -1,3 +1,5 @@
+import { CreateProductRequest, CreateProductResponse, UpdateProductResponse } from '@libs/odoo/interfaces';
+
 export type SourceType = 'odoo_ui' | 'api';
 export type QuotationStatus = 'draft' | 'confirmed' | 'done' | 'cancel';
 export type PaymentStatus = 'not_paid' | 'partial' | 'paid';
@@ -68,4 +70,19 @@ export interface PaymentLinkTabiTamaraEvent {
   timestamp?: string; // ISO 8601
 }
 
-export type OdooWebhookEvent = QuotationStatusUpdateEvent | InvoiceCreatedEvent | PaymentCreatedEvent | RefundCreditNoteEvent | PaymentLinkTabiTamaraEvent;
+export interface ProductCreateEvent extends CreateProductRequest, CreateProductResponse, UpdateProductResponse {
+  event: 'product_create';
+}
+
+export interface ProductUpdateEvent extends CreateProductRequest, CreateProductResponse, UpdateProductResponse {
+  event: 'product_update';
+}
+
+export type OdooWebhookEvent =
+  | QuotationStatusUpdateEvent
+  | InvoiceCreatedEvent
+  | PaymentCreatedEvent
+  | RefundCreditNoteEvent
+  | PaymentLinkTabiTamaraEvent
+  | ProductCreateEvent
+  | ProductUpdateEvent;

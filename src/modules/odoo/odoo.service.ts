@@ -1,33 +1,77 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OdooService as OdooLibService } from '@libs/odoo/odoo.service';
-import { RequestRepository, ResponseRepository } from '@common/repositories';
-import { CreateContactRequest, CreateContactResponse, CreateQuotationRequest, ISO8601Date, UpdateContactRequest } from '@libs/odoo/interfaces';
-import { RequestType, RequestStatus, ResponseStatus, SourceType } from '@common/entities';
+import { QueueRepository, RequestRepository, ResponseRepository } from '@common/repositories';
+import {
+  CreateContactRequest,
+  CreateContactResponse,
+  CreateProductRequest,
+  CreateQuotationRequest,
+  ISO8601Date,
+  UpdateContactRequest,
+  UpdateProductRequest,
+} from '@libs/odoo/interfaces';
+import { RequestType, RequestStatus, ResponseStatus, SourceType, QueueStatus, QueueType } from '@common/entities';
 import { OdooWebhookEvent } from './enums/webhook-event-enum';
+import { AwsSqsProducerService } from '@libs/aws_sqs/producer.service';
+import { ConfigService } from '@nestjs/config';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class OdooService {
   private readonly logger = new Logger(OdooService.name);
 
   constructor(
+    private readonly sqsProducerService: AwsSqsProducerService,
     private readonly odooLibService: OdooLibService,
     private readonly requestRespository: RequestRepository,
     private readonly responseRespository: ResponseRepository,
+    private readonly queueRepository: QueueRepository,
+    private readonly configService: ConfigService,
   ) {}
 
   async handlingWebhook(eventName: string | OdooWebhookEvent, body: Record<string, any>) {
-    switch (eventName) {
-      case OdooWebhookEvent.QUOTATION_STATUS_UPDATE:
-        return this.handleQuotation(body);
+    const method = this.handlingWebhook;
+    const jobId = uuidv4();
+    const sqsUrl = this.configService.get<string>('AWS_Q1_QUEUE_URL') ?? '';
 
-      case OdooWebhookEvent.PAYMENT_CREATED:
-        return this.handlePayment(body);
+    if (!sqsUrl) {
+      this.logger.error(`[${method}] Missing SQS URL`);
+      throw new Error('SQS configuration error');
+    }
 
-      case OdooWebhookEvent.INVOICE_CREATED:
-        return this.handleInvoice(body);
+    const payload = {
+      ...body,
+      eventType: eventName,
+    };
 
-      default:
-        throw new Error(`Unsupported event: ${eventName}`);
+    try {
+      await this.sqsProducerService.sendMessage(sqsUrl, jobId, payload);
+
+      await this.queueRepository.saveQueueItem(
+        this.queueRepository.create({
+          jobId,
+          payload,
+          externalId: String(body?.id),
+          queueType: QueueType.WEBHOOK,
+          sourceType: SourceType.ODOO,
+          status: QueueStatus.QUEUED,
+        }),
+      );
+
+      this.logger.log(`[${method}] Queued`, {
+        jobId,
+        eventType: eventName,
+      });
+
+      return { success: true, jobId };
+    } catch (error) {
+      this.logger.error(`[${method}] Failed`, {
+        jobId,
+        eventType: eventName,
+        error: error?.['message'],
+      });
+
+      return { success: false, error: error?.['message'], jobId };
     }
   }
 
@@ -125,10 +169,20 @@ export class OdooService {
     return await this.createQuotation(jobId, properties);
   }
 
+  async createProduct(jobId: string, properties: CreateProductRequest) {
+    return await this.executeTrackedRequest(jobId, RequestType.CREATE_PRODUCT, null, `/products`, 'POST', properties, () => this.odooLibService.createProduct(properties));
+  }
+
+  async updateProuctById(jobId: string, productId: string, properties: UpdateProductRequest) {
+    return await this.executeTrackedRequest(jobId, RequestType.UPDATE_PRODUCT, productId, `/products/${productId}`, 'PUT', properties, () =>
+      this.odooLibService.updateProduct(productId, properties),
+    );
+  }
+
   private async executeTrackedRequest<T>(
     jobId: string,
     requestType: RequestType,
-    externalId: string,
+    externalId: string | null,
     endpoint: string,
     method: string,
     payload: any,
