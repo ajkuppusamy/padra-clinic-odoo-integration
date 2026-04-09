@@ -11,9 +11,12 @@ export enum RequestType {
   UPDATE_DEAL = 'update_deal',
   FETCH_DEAL = 'fetch_deal',
   FETCH_CONTACT = 'fetch_contact',
-  FETCH_LINEITEMS = 'fetch_lineItem',
-  FETCH_PRODUCTS = 'fetch_product',
-  FETCH_QUOTE = 'fetch_Quote',
+  FETCH_LINEITEM = 'fetch_lineItem',
+  FETCH_PRODUCT = 'fetch_product',
+  FETCH_QUOTE = 'fetch_quote',
+  SEARCH = 'search',
+  CREATE_PRODUCT = 'create_product',
+  UPDATE_PRODUCT = 'update_product',
 }
 
 export enum RequestStatus {
