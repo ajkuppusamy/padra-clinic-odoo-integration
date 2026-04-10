@@ -314,7 +314,7 @@ export class HubspotService {
   }
 
   public async updateContactById(jobId: string, contactId: string, properties: Record<string, any>) {
-    return this.executeTrackedRequest(jobId, RequestType.UPDATE_DEAL, contactId, `/contacts/${contactId}`, 'PUT', properties, () =>
+    return this.executeTrackedRequest(jobId, RequestType.UPDATE_CONTACT, contactId, `/contacts/${contactId}`, 'PUT', properties, () =>
       this.hubspotLibService.updateHubspotObject(HubspotObjects.CONTACTS, contactId, properties),
     );
   }
