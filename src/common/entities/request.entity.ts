@@ -17,6 +17,7 @@ export enum RequestType {
   SEARCH = 'search',
   CREATE_PRODUCT = 'create_product',
   UPDATE_PRODUCT = 'update_product',
+  CREATE_QUOTE = 'create_quote',
 }
 
 export enum RequestStatus {
@@ -32,7 +33,7 @@ export enum RequestStatus {
 @Index(['status', 'createdAt'])
 @Index(['requestType'])
 export class Request extends BaseModel {
-  @Column({ name: 'job_id', type: 'uuid' })
+  @Column({ name: 'job_id' })
   jobId!: string;
 
   @Column({ name: 'request_type', type: 'enum', enum: RequestType })

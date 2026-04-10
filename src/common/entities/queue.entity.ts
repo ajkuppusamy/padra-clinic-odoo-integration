@@ -1,4 +1,4 @@
-import { Entity, Column, Index } from 'typeorm';
+import { Entity, Column, Index, PrimaryGeneratedColumn } from 'typeorm';
 import { BaseModel } from './base.entity';
 
 export enum QueueType {
@@ -33,7 +33,7 @@ export enum Flow {
 @Index(['status', 'createdAt'])
 @Index(['processedAt'])
 export class Queue extends BaseModel {
-  @Column({ name: 'job_id', type: 'uuid', unique: true })
+  @PrimaryGeneratedColumn({ name: 'job_id' })
   jobId!: string;
 
   @Column({ name: 'queue_type', type: 'enum', enum: QueueType })
@@ -41,9 +41,6 @@ export class Queue extends BaseModel {
 
   @Column({ name: 'source_type', type: 'enum', enum: SourceType })
   sourceType!: SourceType;
-
-  @Column({ name: 'flow', type: 'enum', enum: Flow })
-  flow!: Flow;
 
   @Column({ name: 'external_id', type: 'varchar', length: 255, nullable: true })
   externalId!: string | null;

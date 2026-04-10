@@ -51,7 +51,7 @@ export class OdooWebhookGuard implements CanActivate {
 
       isValid = crypto.timingSafeEqual(Buffer.from(expectedSignature, 'hex'), Buffer.from(signature, 'hex'));
     } catch (error) {
-      this.logger.error('Signature comparison failed', error.stack);
+      this.logger.error('Signature comparison failed', ['error']?.['stack']);
       throw new UnauthorizedException('Signature validation failed');
     }
 

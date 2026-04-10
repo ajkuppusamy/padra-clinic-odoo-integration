@@ -15,6 +15,7 @@ import { OdooWebhookEvent } from './enums/webhook-event-enum';
 import { AwsSqsProducerService } from '@libs/aws_sqs/producer.service';
 import { ConfigService } from '@nestjs/config';
 import { v4 as uuidv4 } from 'uuid';
+import { HubspotService } from '@modules/hubspot/hubspot.service';
 
 @Injectable()
 export class OdooService {
@@ -27,6 +28,7 @@ export class OdooService {
     private readonly responseRespository: ResponseRepository,
     private readonly queueRepository: QueueRepository,
     private readonly configService: ConfigService,
+    private readonly hubService: HubspotService,
   ) {}
 
   async handlingWebhook(eventName: string | OdooWebhookEvent, body: Record<string, any>) {
@@ -75,27 +77,12 @@ export class OdooService {
     }
   }
 
-  private async handleQuotation(body: Record<string, any>) {
-    this.logger.log('Handle quotation event');
-    return body;
-  }
-
-  private async handlePayment(body: Record<string, any>) {
-    this.logger.log('Handle payment event');
-    return body;
-  }
-
-  private async handleInvoice(body: Record<string, any>) {
-    this.logger.log('Handle invoice event');
-    return body;
-  }
-
   private buildContactProperties(properties: Record<string, any>): CreateContactRequest {
     this.logger.debug(`${this.buildContactProperties.name} Keys: ${Object.keys(properties)}`);
 
     return {
       email: properties.email ?? '',
-      company_name: properties.company_name ?? '',
+      company_name: properties.company_name ?? new Date().getMilliseconds().toString(),
       name: properties.firstname ?? '',
       address: properties.address ?? '',
       city: properties.city ?? '',
@@ -111,18 +98,27 @@ export class OdooService {
   }
 
   async contactProcess(properties: Record<string, any>, jobId: string): Promise<string> {
+    const generateRandomGmail = (prefix = 'user'): string => {
+      const random = Math.random().toString(36).substring(2, 6);
+      const timestamp = Date.now().toString().slice(-6);
+      return `${prefix}${timestamp}${random}@gmail.com`;
+    };
+
     const payload = this.buildContactProperties(properties);
-    const email = payload.email;
 
-    const exists = await this.checkExistContact(email);
-    const contactId = '1122'; // replace with real lookup
+    payload.email = generateRandomGmail();
+    // const exists = await this.checkExistContact(email);
+    // const contactId = '1122'; // replace with real lookup
 
-    if (exists && contactId) {
-      await this.updateContact(jobId, contactId, payload);
-      return contactId;
-    }
+    // if (exists && contactId) {
+    //   await this.updateContact(jobId, contactId, payload);
+    //   return contactId;
+    // }
 
-    return (await this.createContact(jobId, payload))?.contact_id;
+    const odooContactId = (await this.createContact(jobId, payload))?.contact_id;
+    const hubspotContactId = properties?.hs_object_id;
+    await this.hubService.updateContactById(jobId, hubspotContactId, { odoo_contact_id: odooContactId }); // custom Property
+    return odooContactId;
   }
 
   async createContact(jobId: string, properties: CreateContactRequest): Promise<CreateContactResponse> {
@@ -135,13 +131,15 @@ export class OdooService {
     );
   }
 
-  async buildQuotationProperties(odooContactId: string, lineItemProperties: {}[]): Promise<CreateQuotationRequest> {
+  async buildQuotationProperties(odooContactId: string, lineItemProperties: any[]): Promise<CreateQuotationRequest> {
+    this.logger.debug(`${this.buildQuotationProperties.name} ContactId=${odooContactId}`);
+
     const lineItems = lineItemProperties.map((item: any) => ({
-      description: item.description ?? item?.hs_sku,
-      quantity: item.quantity || 0,
-      unit_price: item.unit_price || 0,
-      product_id: item.odoo_product_id ?? item?.hs_sku,
-      tax_rate: item.tax_rate,
+      description: item.name ?? item.hs_sku ?? 'No description',
+      quantity: Number(item.quantity) || 1,
+      unit_price: Number(item.price) || 0,
+      product_id: item.odoo_product_id ?? item.hs_product_id,
+      tax_rate: item.tax_rate ? Number(item.tax_rate) : 5.0,
     }));
 
     return {
@@ -165,7 +163,10 @@ export class OdooService {
   }
 
   async processQuotation(jobId: string, odooContactId: string, lineItemProperties: {}[]) {
-    const properties: CreateQuotationRequest = this.buildQuotationProperties(odooContactId, lineItemProperties) as unknown as CreateQuotationRequest;
+    const properties: CreateQuotationRequest = await this.buildQuotationProperties(odooContactId, lineItemProperties);
+
+    this.logger.debug(`${this.processQuotation.name} properties=${JSON.stringify(properties)}`);
+
     return await this.createQuotation(jobId, properties);
   }
 

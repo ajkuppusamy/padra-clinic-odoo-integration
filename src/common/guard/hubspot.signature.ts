@@ -43,11 +43,7 @@ export class HubspotSignatureService {
   /**
    * Compare signatures using constant-time comparison
    */
-  private compareSignatures(
-    computedSignature: string,
-    receivedSignature: string,
-    signatureVersion: string,
-  ): boolean {
+  private compareSignatures(computedSignature: string, receivedSignature: string, signatureVersion: string): boolean {
     try {
       if (signatureVersion === 'v1' || signatureVersion === 'v2') {
         // V1 and V2 use hex encoding
@@ -61,7 +57,7 @@ export class HubspotSignatureService {
         return crypto.timingSafeEqual(receivedBuffer, computedBuffer);
       }
     } catch (error) {
-      this.logger.warn(`Signature comparison failed: ${error.message}`);
+      this.logger.warn(`Signature comparison failed: ${['error']?.['message']}`);
       return false;
     }
   }
@@ -106,10 +102,7 @@ export class HubspotSignatureService {
           throw new Error('Timestamp is required for V3 signature validation');
         }
         sourceString = method + url + requestBody + timestamp;
-        return crypto
-          .createHmac('sha256', clientSecret)
-          .update(sourceString)
-          .digest('base64');
+        return crypto.createHmac('sha256', clientSecret).update(sourceString).digest('base64');
 
       default:
         throw new Error(`Unsupported signature version: ${signatureVersion}`);
@@ -120,23 +113,12 @@ export class HubspotSignatureService {
    * Validate HubSpot signature based on version
    */
   validateSignature(options: SignatureValidationOptions): boolean {
-    const {
-      signatureVersion = 'v1',
-      method = 'POST',
-      signature,
-      clientSecret,
-      requestBody,
-      url,
-      timestamp,
-    } = options;
+    const { signatureVersion = 'v1', method = 'POST', signature, clientSecret, requestBody, url, timestamp } = options;
 
     // Validate timestamp for V3
     if (signatureVersion === 'v3') {
       const currentTime = Date.now();
-      if (
-        timestamp === undefined ||
-        currentTime - timestamp > this.MAX_ALLOWED_TIMESTAMP
-      ) {
+      if (timestamp === undefined || currentTime - timestamp > this.MAX_ALLOWED_TIMESTAMP) {
         throw new Error('Request timestamp expired');
       }
     }
@@ -150,10 +132,6 @@ export class HubspotSignatureService {
     });
 
     // Compare signatures
-    return this.compareSignatures(
-      computedSignature,
-      signature,
-      signatureVersion,
-    );
+    return this.compareSignatures(computedSignature, signature, signatureVersion);
   }
 }
