@@ -16,7 +16,7 @@ export class Response extends BaseModel {
   @Column({ name: 'request_id', type: 'uuid' })
   requestId!: string;
 
-  @Column({ name: 'job_id', type: 'uuid' })
+  @Column({ name: 'job_id' })
   jobId!: string;
 
   @Column({ name: 'status_code', type: 'integer' })

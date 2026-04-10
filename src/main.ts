@@ -4,16 +4,13 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { ConfigService } from '@nestjs/config';
-import crypto from 'crypto';
 import { Request, Response, NextFunction, CookieOptions, RequestHandler } from 'express';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import * as bodyParser from 'body-parser';
-// DB_IMPORTS
-
 import { AppModule } from './app.module';
-
 import { ResponseInterceptor } from '@common/interceptors';
 import { HttpExceptionFilter } from '@common/filters';
+import { loadHubSpotConfig } from '@libs/hubspot/config/hubspot.config';
 
 interface CsrfRequest extends Request {
   cookies: Record<string, string>;
@@ -33,11 +30,8 @@ async function bootstrap() {
     origin: corsOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
-    exposedHeaders: ['X-CSRF-Token'],
+    allowedHeaders: ['Content-Type'],
   });
-
-  // DB_CONFIGS
 
   app.setGlobalPrefix('api/v1');
   app.use(helmet());
@@ -56,29 +50,10 @@ async function bootstrap() {
 
   app.useGlobalInterceptors(new ResponseInterceptor());
 
-  app.use((req: CsrfRequest, res: Response, next: NextFunction) => {
-    const cookieOptions: CookieOptions = {
-      httpOnly: true,
-      sameSite: 'strict',
-      secure: nodeEnv === 'prd',
-    };
-
-    if (!req.cookies['XSRF-TOKEN']) {
-      const token = crypto.randomBytes(32).toString('hex');
-      res.cookie('XSRF-TOKEN', token, cookieOptions);
-    }
-
-    const csrfToken = req.cookies['XSRF-TOKEN'] || '';
-    res.setHeader('X-CSRF-Token', csrfToken);
-
-    next();
-  });
-
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       transform: true,
-      // forbidNonWhitelisted: true,
     }),
   );
 
@@ -91,6 +66,8 @@ async function bootstrap() {
       },
     }),
   );
+
+  loadHubSpotConfig(nodeEnv as unknown as string);
 
   await app.listen(port);
   Logger.log(`🚀 padra-clinic-odoo-integration Express app server running on port ${port} in ${nodeEnv} mode`);

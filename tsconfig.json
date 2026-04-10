@@ -24,7 +24,7 @@
     "paths": {
       "@common/*": ["src/common/*"],
       "@modules/*": ["src/modules/*"],
-      "@libs/*": ["src/libs/*"],
+      "@libs/*": ["src/libs/*"]
     }
   }
 }

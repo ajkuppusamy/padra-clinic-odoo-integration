@@ -1,16 +1,28 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { HubspotService as HubspotLibService } from '@libs/hubspot/hubspot.service';
 import { AwsSqsProducerService } from '@libs/aws_sqs/producer.service';
-import { QuotationFlow } from './dto/quotation-flow.dto';
+
 import { ConfigService } from '@nestjs/config';
 import { v4 as uuidv4 } from 'uuid';
 import { QueueRepository, RequestRepository, ResponseRepository } from '@common/repositories';
-import { QueueStatus, QueueType, Flow, SourceType, RequestType, RequestStatus, ResponseStatus } from '@common/entities';
+import { QueueStatus, QueueType, SourceType, RequestType, RequestStatus, ResponseStatus } from '@common/entities';
 import { HubspotObjects } from '@common/enums';
-import { FilterGroup, FilterOperatorEnum, PublicObjectSearchRequest, SimplePublicObject, SimplePublicObjectId } from '@hubspot/api-client/lib/codegen/crm/objects';
+import {
+  AssociationSpecAssociationCategoryEnum,
+  FilterGroup,
+  FilterOperatorEnum,
+  PublicAssociationsForObject,
+  PublicObjectSearchRequest,
+  SimplePublicObject,
+  SimplePublicObjectId,
+  SimplePublicObjectInputForCreate,
+  SimplePublicObjectWithAssociations,
+} from '@hubspot/api-client/lib/codegen/crm/objects';
 import { HUBSPOT_OBJECT_PROPERTIES } from '@libs/hubspot/constants/properties';
 import { ProductCreateEvent, ProductUpdateEvent } from '@modules/odoo/interfaces/event.interfaces';
 import { delay } from '@common/utils';
+import { Quotation } from './dto/quotation-flow.dto';
+import { ConvertQuotationResponse, CreateQuotationResponse } from '@libs/odoo/interfaces';
 
 @Injectable()
 export class HubspotService {
@@ -25,45 +37,39 @@ export class HubspotService {
     private readonly hubspotLibService: HubspotLibService,
   ) {}
 
-  async sendQuotationFlow(data: QuotationFlow) {
-    const method = this.sendQuotationFlow.name;
-    const jobId = uuidv4();
+  async sendQuotation(data: Quotation) {
+    const method = this.sendQuotation.name;
     const sqsUrl = this.configService.get<string>('AWS_Q1_QUEUE_URL') ?? '';
 
-    if (!sqsUrl) {
-      this.logger.error(`[${method}] Missing SQS URL`);
-      throw new Error('SQS configuration error');
-    }
+    // if (!sqsUrl) {
+    //   this.logger.error(`[${method}] Missing SQS URL`);
+    //   throw new Error('SQS configuration error');
+    // }
 
     try {
-      await this.sqsProducerService.sendMessage(sqsUrl, jobId, data);
-
-      await this.queueRepository.saveQueueItem(
+      const queueRec = await this.queueRepository.saveQueueItem(
         this.queueRepository.create({
-          jobId,
           payload: data,
           externalId: String(data.dealId),
           queueType: QueueType.SYNC_JOB,
           sourceType: SourceType.HUBSPOT,
           status: QueueStatus.QUEUED,
-          flow: data.quotationFlow as unknown as Flow,
         }),
       );
+      // await this.sqsProducerService.sendMessage(sqsUrl, queueRec?.jobId, data);
 
       this.logger.log(`[${method}] Queued`, {
-        jobId,
+        jobId: queueRec?.jobId,
         dealId: data.dealId,
-        quoteId: data.quoteId,
+        quoteId: data?.quoteId,
       });
 
-      return { success: true, jobId };
+      return { success: true, jobId: queueRec?.jobId };
     } catch (error) {
       this.logger.error(`[${method}] Failed`, {
-        jobId,
         error: error?.['message'],
       });
-
-      return { success: false, error: error?.['message'], jobId };
+      return { success: false, error: error?.['message'] };
     }
   }
 
@@ -90,36 +96,85 @@ export class HubspotService {
     }
   }
 
-  private async fetchDeal(dealId: string, jobId: string) {
+  public async fetchDeal(dealId: string, jobId: string) {
     return this.executeTrackedRequest(jobId, RequestType.FETCH_DEAL, dealId, `/deals/${dealId}`, 'GET', {}, () =>
-      this.hubspotLibService.getHubspotObjectData(HubspotObjects.DEALS, dealId, []),
+      this.hubspotLibService.getHubspotObjectData(HubspotObjects.DEALS, dealId, HUBSPOT_OBJECT_PROPERTIES[HubspotObjects.DEALS]),
     );
   }
 
-  private async fetchDealsAssociations(dealId: string, jobId: string) {
-    const [lineItems, contacts, quotes] = await Promise.all([
-      this.executeTrackedRequest(jobId, RequestType.FETCH_LINEITEM, dealId, `/line_items`, 'GET', {}, () =>
-        this.hubspotLibService.getHubspotAssociations(HubspotObjects.DEALS, dealId, HubspotObjects.LINE_ITEMS),
-      ),
-      this.executeTrackedRequest(jobId, RequestType.FETCH_CONTACT, dealId, `/contacts`, 'GET', {}, () =>
-        this.hubspotLibService.getHubspotAssociations(HubspotObjects.DEALS, dealId, HubspotObjects.CONTACTS),
-      ),
-      this.executeTrackedRequest(jobId, RequestType.FETCH_QUOTE, dealId, `/quotes`, 'GET', {}, () =>
-        this.hubspotLibService.getHubspotAssociations(HubspotObjects.DEALS, dealId, HubspotObjects.QUOTES),
-      ),
-    ]);
-
-    return {
-      lineItemIds: lineItems?.map((i) => ({ id: i.toObjectId })) || [],
-      contactIds: contacts?.map((i) => ({ id: i.toObjectId })) || [],
-      quoteIds: quotes?.map((i) => ({ id: i.toObjectId })) || [],
+  private async fetchDealsAssociations(
+    dealId: string,
+    jobId: string,
+    objectTypes: string[] = [HubspotObjects.LINE_ITEMS, HubspotObjects.CONTACTS],
+  ): Promise<{
+    lineItemIds: SimplePublicObjectId[];
+    contactIds: SimplePublicObjectId[];
+    quoteIds: SimplePublicObjectId[];
+    [key: string]: SimplePublicObjectId[];
+  }> {
+    const getRequestType = (objectType: string): RequestType => {
+      switch (objectType) {
+        case HubspotObjects.LINE_ITEMS:
+          return RequestType.FETCH_LINEITEM;
+        case HubspotObjects.CONTACTS:
+          return RequestType.FETCH_CONTACT;
+        case HubspotObjects.QUOTES:
+          return RequestType.FETCH_QUOTE;
+        default:
+          return RequestType.SEARCH; // or some default
+      }
     };
+
+    const promises = objectTypes.map((objectType) =>
+      this.executeTrackedRequest(
+        jobId,
+        getRequestType(objectType), // Use mapped enum value
+        dealId,
+        `/${objectType.toLowerCase()}`,
+        'GET',
+        {},
+        () => this.hubspotLibService.getHubspotAssociations(HubspotObjects.DEALS, dealId, objectType as HubspotObjects),
+      ),
+    );
+
+    const results = await Promise.all(promises);
+
+    const associations = objectTypes.reduce(
+      (acc, type, index) => {
+        let key: string;
+
+        switch (type) {
+          case HubspotObjects.LINE_ITEMS:
+            key = 'lineItemIds';
+            break;
+          case HubspotObjects.CONTACTS:
+            key = 'contactIds';
+            break;
+          case HubspotObjects.QUOTES:
+            key = 'quoteIds';
+            break;
+          default:
+            key = `${type.toLowerCase()}Ids`;
+        }
+
+        acc[key] = results[index]?.map((i) => ({ id: i.toObjectId })) || [];
+        return acc;
+      },
+      {} as {
+        lineItemIds: SimplePublicObjectId[];
+        contactIds: SimplePublicObjectId[];
+        quoteIds: SimplePublicObjectId[];
+        [key: string]: SimplePublicObjectId[];
+      },
+    );
+
+    return associations;
   }
 
   private async fetchdDealAssociatedObjects(
-    lineItemIds: SimplePublicObjectId[],
-    contactIds: SimplePublicObjectId[],
-    quoteIds: SimplePublicObjectId[],
+    lineItemIds: SimplePublicObjectId[] = [],
+    contactIds: SimplePublicObjectId[] = [],
+    quoteIds: SimplePublicObjectId[] = [],
     dealId: string,
     jobId: string,
   ): Promise<{
@@ -128,9 +183,9 @@ export class HubspotService {
     quotes: SimplePublicObject[];
   }> {
     const [lineItems, contacts, quotes] = await Promise.all([
-      this.fetchBatch(HubspotObjects.LINE_ITEMS, lineItemIds, RequestType.FETCH_LINEITEM, dealId, jobId),
-      this.fetchBatch(HubspotObjects.CONTACTS, contactIds, RequestType.FETCH_CONTACT, dealId, jobId),
-      this.fetchBatch(HubspotObjects.QUOTES, quoteIds, RequestType.FETCH_QUOTE, dealId, jobId),
+      lineItemIds.length ? this.fetchBatch(HubspotObjects.LINE_ITEMS, lineItemIds, RequestType.FETCH_LINEITEM, dealId, jobId) : Promise.resolve([]),
+      contactIds.length ? this.fetchBatch(HubspotObjects.CONTACTS, contactIds, RequestType.FETCH_CONTACT, dealId, jobId) : Promise.resolve([]),
+      quoteIds.length ? this.fetchBatch(HubspotObjects.QUOTES, quoteIds, RequestType.FETCH_QUOTE, dealId, jobId) : Promise.resolve([]),
     ]);
 
     return { lineItems, contacts, quotes };
@@ -142,7 +197,7 @@ export class HubspotService {
     const result = await this.executeTrackedRequest(jobId, requestType, externalId, `/batch`, 'POST', { inputs: ids }, () =>
       this.hubspotLibService.getBatchObject(objectType, {
         inputs: ids,
-        properties: [],
+        properties: HUBSPOT_OBJECT_PROPERTIES[objectType] ?? [],
         propertiesWithHistory: [],
       }),
     );
@@ -156,10 +211,100 @@ export class HubspotService {
     );
   }
 
+  public async createQuote(jobId: string, properties: SimplePublicObjectInputForCreate) {
+    return this.executeTrackedRequest(jobId, RequestType.CREATE_QUOTE, null, `/quotes`, 'POST', properties, () =>
+      this.hubspotLibService.createHubspotObject(HubspotObjects.QUOTES, properties),
+    );
+  }
+
   public async createProduct(jobId: string, properties: Record<string, any>) {
     return this.executeTrackedRequest(jobId, RequestType.CREATE_PRODUCT, null, `/products`, 'POST', properties, () =>
       this.hubspotLibService.createHubspotObject(HubspotObjects.PRODUCTS, { properties }),
     );
+  }
+
+  public async createInVoice(jobId: string, properties: SimplePublicObjectInputForCreate) {
+    return this.executeTrackedRequest(jobId, RequestType.CREATE_INVOICE, null, `/invoices`, 'POST', properties, () =>
+      this.hubspotLibService.createHubspotObject(HubspotObjects.INVOICES, properties),
+    );
+  }
+
+  private buildCreateInvoicePayload(
+    quotationId: string,
+    invoiceId: string,
+    dealId: string,
+    lineItems: SimplePublicObject[],
+    contacts: SimplePublicObject[],
+  ): SimplePublicObjectInputForCreate {
+    const associations: PublicAssociationsForObject[] = [];
+
+    if (dealId) {
+      associations.push({
+        to: { id: dealId },
+        types: [
+          {
+            associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined,
+            associationTypeId: 175, // Invoice to Deal
+          },
+        ],
+      });
+    }
+
+    if (contacts?.length) {
+      contacts.forEach((contact) => {
+        if (contact?.id) {
+          associations.push({
+            to: { id: contact.id },
+            types: [
+              {
+                associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined,
+                associationTypeId: 177, // Invoice to Contact
+              },
+            ],
+          });
+        }
+      });
+    }
+
+    if (lineItems?.length) {
+      lineItems.forEach((item) => {
+        if (item?.id) {
+          associations.push({
+            to: { id: item.id },
+            types: [
+              {
+                associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined,
+                associationTypeId: 409, // Invoice to Line Item
+              },
+            ],
+          });
+        }
+      });
+    }
+
+    return {
+      properties: {
+        hs_title: `Invoice from Odoo - ${quotationId}`, // Better title with reference
+        hs_currency: 'USD',
+        hs_invoice_status: 'draft', // Set initial status
+        hs_invoice_date: new Date().toISOString(), //  Add invoice date
+        odoo_quotation_id: quotationId ?? '',
+        odoo_invoice_id: invoiceId ?? '',
+      },
+      associations,
+    };
+  }
+
+  public async processInvoice(
+    jobId: string,
+    quotation: ConvertQuotationResponse,
+    deal: SimplePublicObjectWithAssociations,
+    lineItems: SimplePublicObject[],
+    contact: SimplePublicObject[],
+  ) {
+    const payload = this.buildCreateInvoicePayload(quotation.quotation_id, quotation.invoice_id, deal.id, lineItems, contact);
+    this.logger.debug(`${this.processInvoice.name} payload=${JSON.stringify(payload)}`);
+    return await this.createInVoice(jobId, payload);
   }
 
   public async updateProductById(jobId: string, productId: string, properties: Record<string, any>) {
@@ -168,8 +313,16 @@ export class HubspotService {
     );
   }
 
+  public async updateDealById(jobId: string, dealId: string, properties: Record<string, any>) {
+    return this.executeTrackedRequest(jobId, RequestType.UPDATE_DEAL, dealId, `/deals/${dealId}`, 'PUT', properties, () =>
+      this.hubspotLibService.updateHubspotObject(HubspotObjects.PRODUCTS, dealId, properties),
+    );
+  }
+
   public async searchObjectByType(jobId: string, hubspotObject: HubspotObjects, request: PublicObjectSearchRequest, after?: string, limit?: number) {
-    return this.executeTrackedRequest(jobId, RequestType.SEARCH, jobId, `/search`, 'POST', request, () => this.hubspotLibService.searchObject(hubspotObject, { after, limit }));
+    return this.executeTrackedRequest(jobId, RequestType.SEARCH, jobId, `${hubspotObject}/search`, 'POST', request, () =>
+      this.hubspotLibService.searchObject(hubspotObject, { after, limit }),
+    );
   }
 
   private buildHubspotSearch(params: {
@@ -182,29 +335,17 @@ export class HubspotService {
   }): PublicObjectSearchRequest {
     const searchRequest = new PublicObjectSearchRequest();
 
-    if (params.query !== undefined) {
-      searchRequest.query = params.query;
-    }
+    if (params.query) searchRequest.query = params.query;
 
-    if (params.limit !== undefined) {
-      searchRequest.limit = params.limit;
-    }
+    if (params.limit !== undefined) searchRequest.limit = params.limit;
 
-    if (params.after !== undefined) {
-      searchRequest.after = params.after;
-    }
+    if (params.after !== undefined) searchRequest.after = params.after;
 
-    if (params.sorts !== undefined) {
-      searchRequest.sorts = params.sorts;
-    }
+    if (params.sorts !== undefined) searchRequest.sorts = params.sorts;
 
-    if (params.properties !== undefined) {
-      searchRequest.properties = params.properties;
-    }
+    if (params.properties !== undefined) searchRequest.properties = params.properties;
 
-    if (params.filterGroups !== undefined) {
-      searchRequest.filterGroups = params.filterGroups;
-    }
+    if (params.filterGroups !== undefined) searchRequest.filterGroups = params.filterGroups;
 
     return searchRequest;
   }
@@ -216,7 +357,7 @@ export class HubspotService {
         {
           filters: [
             {
-              propertyName: 'odoo_invoice_id',
+              propertyName: 'odoo_invoice_id', // custom Properies
               operator: FilterOperatorEnum.Eq,
               value: odooInvoiceId,
             },
@@ -254,13 +395,36 @@ export class HubspotService {
     return searchResult?.results[0]?.id ?? null;
   }
 
+  public async fetchInVoiceByOdooInVoiceId(jobId: string, invoiceId: string): Promise<string | null> {
+    const searchRequest = this.buildHubspotSearch({
+      properties: HUBSPOT_OBJECT_PROPERTIES.invoices ?? [],
+      filterGroups: [
+        {
+          filters: [
+            {
+              propertyName: 'odoo_invoice_id',
+              operator: FilterOperatorEnum.Eq,
+              value: invoiceId,
+            },
+          ],
+        },
+      ],
+      limit: 1,
+    });
+
+    await delay(1000); // delay setup
+    const searchResult = await this.searchObjectByType(jobId, HubspotObjects.INVOICES, searchRequest, undefined, 1);
+
+    return searchResult?.results[0]?.id ?? null;
+  }
+
   private buildProductsPayload(properties: ProductCreateEvent | ProductUpdateEvent) {
     this.logger.debug(`${this.buildProductsPayload.name} data=${JSON.stringify(properties)}`);
     return {
       name: properties.name,
       price: properties?.price,
       hs_sku: properties.product_id,
-      odoo_product_id: properties?.product_id,
+      odoo_product_id: properties?.product_id, // custom Properties
     };
   }
 
@@ -274,7 +438,9 @@ export class HubspotService {
     const isUpdateEvent = normalizedEvent.includes('product_update') || normalizedEvent.includes('product_updated');
 
     if (!properties?.product_id) {
-      throw new Error('product_id is required for product sync');
+      await this.queueRepository.updateStatus(jobId, QueueStatus.SKIPPED, 'product_id is required for product sync');
+      this.logger.debug(`Product Id Not Found So skipped`);
+      return;
     }
 
     if (isCreateEvent) {
@@ -304,6 +470,39 @@ export class HubspotService {
       return null;
     }
     return deals[0]?.toObjectId;
+  }
+
+  public async fetchAssociatedDealIdByInVoiceId(invoiceId: string, jobId: string): Promise<string | null> {
+    const deals = await this.executeTrackedRequest(jobId, RequestType.FETCH_DEAL, invoiceId, `/invoices/${invoiceId}/associations/deals`, 'GET', {}, () =>
+      this.hubspotLibService.getHubspotAssociations(HubspotObjects.INVOICES, invoiceId, HubspotObjects.DEALS),
+    );
+
+    if (!deals?.length) {
+      this.logger.warn(`${this.fetchAssociatedDealIdByInVoiceId.name} No deals found`, { invoiceId, jobId });
+      return null;
+    }
+    return deals[0]?.toObjectId;
+  }
+
+  private buildQuotePayload(properties: Record<string, any>) {
+    this.logger.debug(`${this.buildQuotePayload.name} Properties=${JSON.stringify(properties)}`);
+
+    return {
+      hs_title: properties?.hs_title ?? properties?.dealname,
+      hs_status: 'DRAFT',
+      hs_language: 'en',
+      hs_currency: properties?.hs_currency ?? 'USD',
+      hs_expiration_date: properties?.hs_expiration_date ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      // hs_total_amount: properties?.amount || 0,
+      odoo_quotation_id: properties?.quotationId,
+    };
+  }
+  public async quoteProcess(jobId: string, dealId: string, properties: Record<string, any>, quotationId?: string) {
+    const payload: SimplePublicObjectInputForCreate = {
+      properties: this.buildQuotePayload({ quotationId, ...properties }),
+      associations: [{ to: { id: dealId }, types: [{ associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined, associationTypeId: 64 }] }],
+    };
+    return await this.createQuote(jobId, payload);
   }
 
   private async executeTrackedRequest<T>(

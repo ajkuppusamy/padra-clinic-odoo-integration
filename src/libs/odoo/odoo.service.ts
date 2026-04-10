@@ -1,6 +1,6 @@
 import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
-import { firstValueFrom, Observable } from 'rxjs';
+import { firstValueFrom, Observable, timer } from 'rxjs';
 import { catchError, retry } from 'rxjs/operators';
 import PQueue from 'p-queue';
 import { OdooConfigService } from './config/odoo.config';
@@ -140,7 +140,7 @@ export class OdooService {
             .pipe(
               retry({
                 count: this.retryAttempts,
-                delay: this.retryDelay,
+                delay: (_error, retryCount) => timer(retryCount * 1000),
               }),
               catchError((error) => this.handleError(error, method, path)),
             ),

@@ -59,10 +59,6 @@ import { IntegrationModule } from '@modules/integration/integration.module';
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
     },
-    {
-      provide: APP_GUARD,
-      useClass: AuthGuard, // Global Auth Guard
-    },
   ],
 })
 export class AppModule implements NestModule {

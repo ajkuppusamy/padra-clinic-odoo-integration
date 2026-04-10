@@ -54,7 +54,7 @@ export class AwsSqsProducerService {
         jobId: finalJobId,
       });
     } catch (error) {
-      this.logger.error(`Failed to send message to SQS: ${queueUrl}`, error.stack);
+      this.logger.error(`Failed to send message to SQS: ${queueUrl}`, ['error']?.['stack']);
       throw error;
     }
   }
