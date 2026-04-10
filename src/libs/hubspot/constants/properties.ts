@@ -1,5 +1,5 @@
 export const HUBSPOT_OBJECT_PROPERTIES: Record<string, string[]> = {
-  contacts: ['firstname', 'lastname', 'email', 'phone', 'company', 'jobtitle', 'lifecyclestage', 'createdate', 'hs_object_id'],
+  contacts: ['firstname', 'lastname', 'email', 'phone', 'company', 'jobtitle', 'lifecyclestage', 'createdate', 'hs_object_id', 'odoo_contact_id'],
 
   companies: ['name', 'domain', 'industry', 'phone', 'city', 'state', 'country', 'website', 'createdate', 'hs_object_id'],
 

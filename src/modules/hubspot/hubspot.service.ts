@@ -313,6 +313,12 @@ export class HubspotService {
     );
   }
 
+  public async updateContactById(jobId: string, contactId: string, properties: Record<string, any>) {
+    return this.executeTrackedRequest(jobId, RequestType.UPDATE_DEAL, contactId, `/contacts/${contactId}`, 'PUT', properties, () =>
+      this.hubspotLibService.updateHubspotObject(HubspotObjects.CONTACTS, contactId, properties),
+    );
+  }
+
   public async updateDealById(jobId: string, dealId: string, properties: Record<string, any>) {
     return this.executeTrackedRequest(jobId, RequestType.UPDATE_DEAL, dealId, `/deals/${dealId}`, 'PUT', properties, () =>
       this.hubspotLibService.updateHubspotObject(HubspotObjects.PRODUCTS, dealId, properties),

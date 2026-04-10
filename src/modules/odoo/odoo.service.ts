@@ -15,6 +15,7 @@ import { OdooWebhookEvent } from './enums/webhook-event-enum';
 import { AwsSqsProducerService } from '@libs/aws_sqs/producer.service';
 import { ConfigService } from '@nestjs/config';
 import { v4 as uuidv4 } from 'uuid';
+import { HubspotService } from '@modules/hubspot/hubspot.service';
 
 @Injectable()
 export class OdooService {
@@ -27,6 +28,7 @@ export class OdooService {
     private readonly responseRespository: ResponseRepository,
     private readonly queueRepository: QueueRepository,
     private readonly configService: ConfigService,
+    private readonly hubService: HubspotService,
   ) {}
 
   async handlingWebhook(eventName: string | OdooWebhookEvent, body: Record<string, any>) {
@@ -113,7 +115,10 @@ export class OdooService {
     //   return contactId;
     // }
 
-    return (await this.createContact(jobId, payload))?.contact_id;
+    const odooContactId = (await this.createContact(jobId, payload))?.contact_id;
+    const hubspotContactId = properties?.hs_object_id;
+    await this.hubService.updateContactById(jobId, hubspotContactId, { odoo_contact_id: odooContactId }); // custom Property
+    return odooContactId;
   }
 
   async createContact(jobId: string, properties: CreateContactRequest): Promise<CreateContactResponse> {
