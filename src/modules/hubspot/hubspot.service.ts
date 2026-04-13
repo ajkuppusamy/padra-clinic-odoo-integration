@@ -41,10 +41,10 @@ export class HubspotService {
     const method = this.sendQuotation.name;
     const sqsUrl = this.configService.get<string>('AWS_Q1_QUEUE_URL') ?? '';
 
-    // if (!sqsUrl) {
-    //   this.logger.error(`[${method}] Missing SQS URL`);
-    //   throw new Error('SQS configuration error');
-    // }
+    if (!sqsUrl) {
+      this.logger.error(`[${method}] Missing SQS URL`);
+      throw new Error('SQS configuration error');
+    }
 
     try {
       const queueRec = await this.queueRepository.saveQueueItem(
@@ -56,7 +56,7 @@ export class HubspotService {
           status: QueueStatus.QUEUED,
         }),
       );
-      // await this.sqsProducerService.sendMessage(sqsUrl, queueRec?.jobId, data);
+      await this.sqsProducerService.sendMessage(sqsUrl, queueRec?.jobId, data, 'deal_update');
 
       this.logger.log(`[${method}] Queued`, {
         jobId: queueRec?.jobId,

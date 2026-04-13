@@ -33,7 +33,6 @@ export class OdooService {
 
   async handlingWebhook(eventName: string | OdooWebhookEvent, body: Record<string, any>) {
     const method = this.handlingWebhook;
-    const jobId = uuidv4();
     const sqsUrl = this.configService.get<string>('AWS_Q1_QUEUE_URL') ?? '';
 
     if (!sqsUrl) {
@@ -47,11 +46,8 @@ export class OdooService {
     };
 
     try {
-      await this.sqsProducerService.sendMessage(sqsUrl, jobId, payload);
-
-      await this.queueRepository.saveQueueItem(
+      const record = await this.queueRepository.saveQueueItem(
         this.queueRepository.create({
-          jobId,
           payload,
           externalId: String(body?.id),
           queueType: QueueType.WEBHOOK,
@@ -59,21 +55,21 @@ export class OdooService {
           status: QueueStatus.QUEUED,
         }),
       );
+      await this.sqsProducerService.sendMessage(sqsUrl, record.jobId, payload, eventName);
 
       this.logger.log(`[${method}] Queued`, {
-        jobId,
+        jobId: record.jobId,
         eventType: eventName,
       });
 
-      return { success: true, jobId };
+      return { success: true, jobId: record.jobId };
     } catch (error) {
       this.logger.error(`[${method}] Failed`, {
-        jobId,
         eventType: eventName,
         error: error?.['message'],
       });
 
-      return { success: false, error: error?.['message'], jobId };
+      return { success: false, error: error?.['message'] };
     }
   }
 

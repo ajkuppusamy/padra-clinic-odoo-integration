@@ -22,18 +22,21 @@ export class AwsSqsProducerService {
     });
   }
 
-  async sendMessage(queueUrl: string, msgGroupId: string = uuidv4(), payload: unknown): Promise<void> {
+  async sendMessage(queueUrl: string, msgGroupId: string = uuidv4(), payload: unknown, eventName: string): Promise<void> {
     try {
       const finalJobId = msgGroupId || uuidv4();
 
+      const groupId = eventName.toLowerCase();
+
       const enrichedPayload = {
         jobId: finalJobId,
+        eventName,
         timestamp: new Date().toISOString(),
         data: payload,
       };
 
       const command = new SendMessageCommand({
-        MessageGroupId: `${msgGroupId}-${finalJobId}`,
+        MessageGroupId: groupId,
         MessageDeduplicationId: `${finalJobId}-${Date.now()}`,
         QueueUrl: queueUrl,
         MessageBody: JSON.stringify(enrichedPayload),
@@ -41,6 +44,10 @@ export class AwsSqsProducerService {
           jobId: {
             DataType: 'String',
             StringValue: finalJobId,
+          },
+          eventName: {
+            DataType: 'String',
+            StringValue: eventName,
           },
           timestamp: {
             DataType: 'String',
@@ -52,6 +59,7 @@ export class AwsSqsProducerService {
       this.logger.log(`Message sent to SQS: ${queueUrl}`, {
         messageId: result.MessageId,
         jobId: finalJobId,
+        groupId,
       });
     } catch (error) {
       this.logger.error(`Failed to send message to SQS: ${queueUrl}`, ['error']?.['stack']);
