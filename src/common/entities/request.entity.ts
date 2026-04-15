@@ -18,6 +18,8 @@ export enum RequestType {
   CREATE_PRODUCT = 'create_product',
   UPDATE_PRODUCT = 'update_product',
   CREATE_QUOTE = 'create_quote',
+  CREATE_LINEITEM = 'create_lineitem',
+  FETCH_INVOICE = 'fetch_invoice',
 }
 
 export enum RequestStatus {

@@ -27,6 +27,8 @@ export class OdooConfigService {
     const timeout = this.configService.get<number>('ODOO_TIMEOUT', 30000);
     const retryAttempts = this.configService.get<number>('ODOO_RETRY_ATTEMPTS', 3);
     const retryDelay = this.configService.get<number>('ODOO_RETRY_DELAY', 1000);
+    const searchApiKey = this.configService.get<string>('ODOO_SEARCH_API_KEY') as string;
+    const searchAPIURL = this.configService.get<string>('ODOO_SEARCH_API') as string;
 
     if (!baseURL) {
       throw new Error('ODOO_BASE_URL configuration is missing');
@@ -45,6 +47,8 @@ export class OdooConfigService {
       timeout,
       retryAttempts,
       retryDelay,
+      searchApiKey,
+      searchAPIURL,
     };
   }
 

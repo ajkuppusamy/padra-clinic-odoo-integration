@@ -8,11 +8,13 @@ import { SQS_QUEUE_CONSUMERS } from '@common/constants';
 
 import { AwsSqsProducerService } from './producer.service';
 import { AwsSqsConsumerService } from './consumer.service';
+import { IntegrationModule } from '@modules/integration/integration.module';
 
 @Global()
 @Module({
   imports: [
     ConfigModule,
+    IntegrationModule,
     NestSqsModule.registerAsync({
       useFactory: (configService: ConfigService) => {
         const consumerConfigs = SQS_QUEUE_CONSUMERS.map((c: string) => ({

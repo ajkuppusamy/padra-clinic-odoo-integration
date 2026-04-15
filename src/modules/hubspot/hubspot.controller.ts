@@ -1,40 +1,60 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post, Param, UseGuards } from '@nestjs/common';
 import { HubspotService } from './hubspot.service';
-import { Quotation } from './dto/quotation-flow.dto';
 import { HubspotAuthGuard } from '@common/guard';
-
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody } from '@nestjs/swagger';
+import { HubspotWebhookDto } from './dto';
 
 @ApiTags('Hubspot')
 @Controller('hubspot')
 export class HubspotController {
   constructor(private readonly hubspotService: HubspotService) {}
 
-  @Post('quotation')
+  @Post('webhook')
   @HttpCode(HttpStatus.OK)
   // @UseGuards(HubspotAuthGuard)
-  @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Send quotation to HubSpot' })
-  @ApiBody({ type: Quotation })
+  @ApiOperation({
+    summary: 'Handle HubSpot deal webhook events',
+    description: 'Receives webhook events from HubSpot for deal-related events including creation, updates, and deletions',
+  })
+  @ApiBody({
+    type: HubspotWebhookDto,
+    description: 'HubSpot deal webhook payload',
+  })
   @ApiResponse({
     status: 200,
-    description: 'Quotation successfully sent to HubSpot',
+    description: 'Deal webhook processed successfully',
     schema: {
       example: {
         success: true,
-        message: 'Quotation processed successfully',
+        message: 'Deal webhook processed successfully',
+        dealId: 5001,
+        eventType: 'deal.creation',
       },
     },
   })
   @ApiResponse({
     status: 400,
-    description: 'Validation error',
+    description: 'Validation error - Invalid webhook payload',
+    schema: {
+      example: {
+        statusCode: 400,
+        message: ['objectId must be a number', 'portalId should not be empty'],
+        error: 'Bad Request',
+      },
+    },
   })
   @ApiResponse({
     status: 401,
-    description: 'Unauthorized',
+    description: 'Unauthorized - Invalid or missing authentication',
+    schema: {
+      example: {
+        statusCode: 401,
+        message: 'Unauthorized',
+        error: 'Unauthorized',
+      },
+    },
   })
-  async sendQuotationFlow(@Body() body: Quotation) {
+  async sendQuotationFlow(@Body() body: HubspotWebhookDto) {
     return this.hubspotService.sendQuotation(body);
   }
 }

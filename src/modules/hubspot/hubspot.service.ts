@@ -19,10 +19,11 @@ import {
   SimplePublicObjectWithAssociations,
 } from '@hubspot/api-client/lib/codegen/crm/objects';
 import { HUBSPOT_OBJECT_PROPERTIES } from '@libs/hubspot/constants/properties';
-import { ProductCreateEvent, ProductUpdateEvent } from '@modules/odoo/interfaces/event.interfaces';
+import { PaymentCreatedEvent, ProductCreateEvent, ProductUpdateEvent } from '@modules/odoo/interfaces/event.interfaces';
 import { delay } from '@common/utils';
 import { Quotation } from './dto/quotation-flow.dto';
 import { ConvertQuotationResponse, CreateQuotationResponse } from '@libs/odoo/interfaces';
+import { HubspotWebhookDto } from './dto';
 
 @Injectable()
 export class HubspotService {
@@ -37,7 +38,7 @@ export class HubspotService {
     private readonly hubspotLibService: HubspotLibService,
   ) {}
 
-  async sendQuotation(data: Quotation) {
+  async sendQuotation(data: HubspotWebhookDto) {
     const method = this.sendQuotation.name;
     const sqsUrl = this.configService.get<string>('AWS_Q1_QUEUE_URL') ?? '';
 
@@ -50,7 +51,7 @@ export class HubspotService {
       const queueRec = await this.queueRepository.saveQueueItem(
         this.queueRepository.create({
           payload: data,
-          externalId: String(data.dealId),
+          externalId: String(data.objectId),
           queueType: QueueType.SYNC_JOB,
           sourceType: SourceType.HUBSPOT,
           status: QueueStatus.QUEUED,
@@ -60,8 +61,7 @@ export class HubspotService {
 
       this.logger.log(`[${method}] Queued`, {
         jobId: queueRec?.jobId,
-        dealId: data.dealId,
-        quoteId: data?.quoteId,
+        dealId: data.objectId.toString(),
       });
 
       return { success: true, jobId: queueRec?.jobId };
@@ -99,6 +99,12 @@ export class HubspotService {
   public async fetchDeal(dealId: string, jobId: string) {
     return this.executeTrackedRequest(jobId, RequestType.FETCH_DEAL, dealId, `/deals/${dealId}`, 'GET', {}, () =>
       this.hubspotLibService.getHubspotObjectData(HubspotObjects.DEALS, dealId, HUBSPOT_OBJECT_PROPERTIES[HubspotObjects.DEALS]),
+    );
+  }
+
+  public async fetchInvoiceById(jobId: string, InvoiceId: string) {
+    return this.executeTrackedRequest(jobId, RequestType.FETCH_INVOICE, InvoiceId, `/invoices/${InvoiceId}`, 'GET', {}, () =>
+      this.hubspotLibService.getHubspotObjectData(HubspotObjects.INVOICES, InvoiceId, HUBSPOT_OBJECT_PROPERTIES[HubspotObjects.INVOICES]),
     );
   }
 
@@ -217,6 +223,12 @@ export class HubspotService {
     );
   }
 
+  public async createLineItems(jobId: string, properties: SimplePublicObjectInputForCreate) {
+    return this.executeTrackedRequest(jobId, RequestType.CREATE_LINEITEM, null, `/line_items`, 'POST', properties, () =>
+      this.hubspotLibService.createHubspotObject(HubspotObjects.LINE_ITEMS, properties),
+    );
+  }
+
   public async createProduct(jobId: string, properties: Record<string, any>) {
     return this.executeTrackedRequest(jobId, RequestType.CREATE_PRODUCT, null, `/products`, 'POST', properties, () =>
       this.hubspotLibService.createHubspotObject(HubspotObjects.PRODUCTS, { properties }),
@@ -297,12 +309,12 @@ export class HubspotService {
 
   public async processInvoice(
     jobId: string,
-    quotation: ConvertQuotationResponse,
+    quotation: Partial<ConvertQuotationResponse>,
     deal: SimplePublicObjectWithAssociations,
     lineItems: SimplePublicObject[],
     contact: SimplePublicObject[],
   ) {
-    const payload = this.buildCreateInvoicePayload(quotation.quotation_id, quotation.invoice_id, deal.id, lineItems, contact);
+    const payload = this.buildCreateInvoicePayload(quotation.quotation_id as string, quotation.invoice_id as string, deal.id, lineItems, contact);
     this.logger.debug(`${this.processInvoice.name} payload=${JSON.stringify(payload)}`);
     return await this.createInVoice(jobId, payload);
   }
@@ -463,7 +475,7 @@ export class HubspotService {
       return await this.createProduct(jobId, productProperties);
     }
 
-    return await this.updateProductById(jobId, properties.product_id, productProperties);
+    return await this.updateProductById(jobId, hubSpotProductId, productProperties);
   }
 
   public async fetchAssociatedDealIdByQuoteId(quoteId: string, jobId: string): Promise<string | null> {
@@ -503,12 +515,25 @@ export class HubspotService {
       odoo_quotation_id: properties?.quotationId,
     };
   }
+
   public async quoteProcess(jobId: string, dealId: string, properties: Record<string, any>, quotationId?: string) {
     const payload: SimplePublicObjectInputForCreate = {
       properties: this.buildQuotePayload({ quotationId, ...properties }),
       associations: [{ to: { id: dealId }, types: [{ associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined, associationTypeId: 64 }] }],
     };
     return await this.createQuote(jobId, payload);
+  }
+
+  public async processCreateLinetems(jobId: string, dealId: string, payment: PaymentCreatedEvent) {
+    const properties: SimplePublicObjectInputForCreate = {
+      properties: {
+        name: `${payment.transaction_id} - ${payment.invoice_id}`,
+        quantity: '1',
+        price: payment.amount_paid?.toString(),
+      },
+      associations: [{ to: { id: dealId }, types: [{ associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined, associationTypeId: 20 }] }],
+    };
+    return await this.createLineItems(jobId, properties);
   }
 
   private async executeTrackedRequest<T>(

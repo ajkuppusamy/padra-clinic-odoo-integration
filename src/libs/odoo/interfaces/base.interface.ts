@@ -42,4 +42,6 @@ export interface OdooConfig {
   intervalMs: number;
   retryAttempts: number;
   retryDelay: number;
+  searchApiKey: string;
+  searchAPIURL: string;
 }

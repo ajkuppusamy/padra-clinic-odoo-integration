@@ -1,13 +1,13 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SqsMessageHandler } from '@ssut/nestjs-sqs';
 import type { Message } from '@ssut/nestjs-sqs/dist/sqs.types';
 
 import { AwsSqsProducerService } from './producer.service';
+import { IntegrationService } from '@modules/integration/integration.service';
 
-const QUEUE_NAMES = {
-  Q1: process.env.AWS_Q1_QUEUE_NAME || '',
-};
+import * as dotenv from 'dotenv';
+dotenv.config();
 
 @Injectable()
 export class AwsSqsConsumerService {
@@ -17,6 +17,7 @@ export class AwsSqsConsumerService {
   constructor(
     private readonly configService: ConfigService,
     private readonly awsSqsProducerService: AwsSqsProducerService,
+    private readonly integrationService: IntegrationService,
   ) {}
 
   /**
@@ -24,28 +25,42 @@ export class AwsSqsConsumerService {
    * @param message
    * @returns {Promise<void>}
    */
-  @SqsMessageHandler(QUEUE_NAMES.Q1, false)
+  @SqsMessageHandler(process.env.AWS_Q1_QUEUE_NAME as unknown as string, false)
   async processMigrationItemQueue(message: Message): Promise<void> {
     try {
-      this.logger.debug(
-        `Message received from AWS SQS, ${JSON.stringify(message)}`,
-      );
+      this.logger.debug(`Message received from AWS SQS, ${JSON.stringify(message)}`);
 
-      const body: any = JSON.parse(
-        (message?.['body'] ?? message?.['Body']) || '{}',
-      );
+      const body: any = JSON.parse((message?.['body'] ?? message?.['Body']) || '{}');
+      this.logger.debug(`Body : ${JSON.stringify(body)}`);
 
-      this.logger.debug(`Data message received!, ${body}`);
+      const { eventName, jobId, data } = body;
 
-      await this.awsSqsProducerService.deleteMessage(
-        this.configService.get<string>('AWS_Q1_QUEUE_URL') ?? '',
-        message?.['receiptHandle'] ?? message?.['ReceiptHandle'] ?? '',
-      );
+      this.logger.debug(`Event: ${eventName}, JobId: ${jobId}`);
+      this.logger.debug(`Data message received!, ${JSON.stringify(data)}`);
+
+      switch (eventName) {
+        case 'deal_update':
+          await this.integrationService.dealExecutionProcess(data?.objectId, jobId);
+          break;
+
+        case 'product_create':
+          await this.integrationService.handlingProductProcess(jobId, data);
+          break;
+        case 'product_update':
+          await this.integrationService.handlingProductProcess(jobId, data);
+          break;
+        case 'payment_created':
+          await this.integrationService.handlingPaymentCreateEvent(jobId, data);
+          break;
+
+        default:
+          this.logger.warn(`Unhandled eventName: ${eventName}`);
+          break;
+      }
+
+      await this.awsSqsProducerService.deleteMessage(this.configService.get<string>('AWS_Q1_QUEUE_URL') ?? '', message?.['receiptHandle'] ?? message?.['ReceiptHandle'] ?? '');
     } catch (error) {
-      this.logger.error(
-        `Failed to process message from queue ${QUEUE_NAMES.Q1}`,
-        (error as Error)?.stack ?? String(error),
-      );
+      this.logger.error(`Failed to process message from queue ${process.env.AWS_Q1_QUEUE_NAME}`, (error as Error)?.stack ?? String(error));
     }
   }
 }

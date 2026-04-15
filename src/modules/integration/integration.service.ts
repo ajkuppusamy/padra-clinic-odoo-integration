@@ -53,6 +53,8 @@ export class IntegrationService {
       const isOffline = offlinePaymentMethod.includes(deal?.properties?.payment_method as unknown as PaymentMethod);
 
       const lineitemProperties = lineItems.map((i) => i?.properties);
+      this.logger.debug(`total Line Items: ${lineItems.length}`);
+      if (!lineItems.length) return await this.handleSkip(jobId, context, 'No Associated LinItems');
 
       const quotation = await this.odooService.processQuotation(jobId, odooContactId, lineitemProperties);
 
@@ -191,7 +193,7 @@ export class IntegrationService {
    * PRODUCT FLOW
    * =========================
    */
-  public async handlingProductProcess(jobId: string, properties: ProductCreateEvent | ProductUpdateEvent, odooEvent: string) {
+  public async handlingProductProcess(jobId: string, properties: ProductCreateEvent | ProductUpdateEvent, odooEvent?: string) {
     if (!properties.product_id) return await this.handleSkip(jobId, this.handlingProductProcess.name, 'Odoo Product Id Not Found');
     const product = await this.hubspotService.processProducts(jobId, properties, odooEvent);
 
@@ -252,12 +254,31 @@ export class IntegrationService {
     await this.hubspotService.updateDealById(jobId, dealId, payload);
   }
 
+  private async handleInvoiceProcess(
+    jobId: string,
+    deal: SimplePublicObjectWithAssociations,
+    paymentEvent: PaymentCreatedEvent,
+    invoiceId: string,
+    contacts: SimplePublicObject[],
+  ): Promise<void> {
+    const createCustomLineItemRecord = await this.hubspotService.processCreateLinetems(jobId, deal.id, paymentEvent);
+    const { odoo_invoice_id, odoo_quotation_id } = (await this.hubspotService.fetchInvoiceById(jobId, invoiceId)).properties;
+    const invoice = await this.hubspotService.processInvoice(
+      jobId,
+      { invoice_id: odoo_invoice_id ?? '', quotation_id: odoo_quotation_id ?? '' },
+      deal,
+      [createCustomLineItemRecord],
+      contacts,
+    );
+    this.logger.log(`Invoice Created Amount as : ${paymentEvent.amount_paid} : ${JSON.stringify(invoice)}`);
+  }
+
   /**
    * =========================
    * PAYMENT FLOW
    * =========================
    */
-  public async handlingPaymentCreateEvent(jobId: string, event: PaymentCreatedEvent, eventName: string) {
+  public async handlingPaymentCreateEvent(jobId: string, event: PaymentCreatedEvent, eventName?: string) {
     const context = this.handlingPaymentCreateEvent.name;
 
     this.logger.debug(`[${context}] Started`, { jobId, eventName });
@@ -265,9 +286,16 @@ export class IntegrationService {
     const invoiceId = await this.getInvoiceId(jobId, event, context);
     if (!invoiceId) return;
     const dealId = await this.getDealId(jobId, invoiceId, context);
-    const deal = await this.getDeal(jobId, dealId);
+    const dealsMetaData = await this.hubspotService.getDealDetails(dealId, jobId);
+    const contacts = dealsMetaData?.contacts ?? [];
+    const deal = dealsMetaData.deal;
 
     const payload = await this.buildPaymentUpdatePayload(deal, event);
+    delete payload.stage;
+
+    if (payload.amount !== event.amount_paid.toString()) {
+      await this.handleInvoiceProcess(jobId, deal, event, invoiceId, contacts);
+    }
 
     await this.updateDeal(jobId, dealId, payload);
 

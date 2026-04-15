@@ -6,6 +6,7 @@ import PQueue from 'p-queue';
 import { OdooConfigService } from './config/odoo.config';
 import {
   CashPaymentRequest,
+  ContactSearchResponse,
   ConvertQuotationResponse,
   CreateAppointmentRequest,
   CreateAppointmentResponse,
@@ -29,6 +30,7 @@ import {
   ListWebhooksResponse,
   OfflineCardPaymentRequest,
   PaymentResponse,
+  SearchReadParams,
   TabiTamaraPaymentRequest,
   UpdateAppointmentRequest,
   UpdateAppointmentResponse,
@@ -65,6 +67,8 @@ export class OdooService {
   private readonly timeout: number | undefined;
   private readonly retryAttempts: number;
   private readonly retryDelay: number;
+  private readonly searchApiKey: string;
+  private readonly searchUrl?: string;
 
   /**
    * Creates an instance of OdooService
@@ -86,6 +90,8 @@ export class OdooService {
     this.timeout = config.timeout ?? undefined;
     this.retryAttempts = config.retryAttempts;
     this.retryDelay = config.retryDelay;
+    this.searchApiKey = config.searchApiKey;
+    this.searchUrl = config.searchAPIURL;
 
     this.requestQueue = new PQueue({
       concurrency: config.maxConcurrent,
@@ -113,6 +119,14 @@ export class OdooService {
     return headers;
   }
 
+  private getSearchHeaders(): Record<string, string> {
+    return {
+      Authorization: `Bearer ${this.searchApiKey}`,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    };
+  }
+
   /**
    * Executes an HTTP request with rate limiting, retry logic, and error handling
    *
@@ -123,7 +137,7 @@ export class OdooService {
    * @returns {Promise<T>} Promise resolving to the response data
    * @throws {HttpException} When request fails after all retry attempts
    */
-  private async request<T>(method: string, path: string, data?: any): Promise<T> {
+  private async request<T>(method: string, path: string, data?: any, searchAPIHeaders?: Record<string, string>): Promise<T> {
     this.logRequest(method, path);
 
     return await this.requestQueue.add(async () => {
@@ -132,8 +146,8 @@ export class OdooService {
           await this.httpService
             .request({
               method,
-              url: `${this.baseURL}${path}`,
-              headers: this.getHeaders(),
+              url: searchAPIHeaders ? this.searchUrl : `${this.baseURL}${path}`,
+              headers: searchAPIHeaders ?? this.getHeaders(),
               data,
               timeout: this.timeout,
             })
@@ -453,5 +467,16 @@ export class OdooService {
    */
   async listConfiguredWebhooks(): Promise<ListWebhooksResponse> {
     return await this.request<ListWebhooksResponse>('GET', '/webhooks');
+  }
+
+  /**
+   * Search Objects
+   *
+   * @param {SearchReadParams} search - Search parameters
+   * @returns {Promise<ContactSearchResponse>} Promise resolving to search results
+   * @throws {HttpException} When API error occurs
+   */
+  async search(search: SearchReadParams): Promise<ContactSearchResponse[]> {
+    return await this.request<ContactSearchResponse[]>('POST', '/search_read', search, this.getSearchHeaders());
   }
 }

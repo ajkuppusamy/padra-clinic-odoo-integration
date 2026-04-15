@@ -1,76 +1,42 @@
-import { Controller, Post, Param, Body, HttpCode, HttpStatus, UseGuards, Req } from '@nestjs/common';
-
-import { OdooWebhookGuard } from '@common/guard';
+import { Controller, Post, Body, HttpCode, HttpStatus, Headers, UseGuards } from '@nestjs/common';
 import { OdooService } from './odoo.service';
-import { ApiTags, ApiOperation, ApiParam, ApiHeader, ApiResponse, ApiBody } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiHeaders, ApiResponse, ApiBody } from '@nestjs/swagger';
+import { ODOO_WEBHOOK_EVENT_NAMES, isValidOdooEventName } from './interfaces/odoo-webhook';
+import { BadRequestException } from '@nestjs/common';
+import { ProductEventDto, WebhookDto } from './dto/odoo-webhook.dto';
+import { OdooWebhookGuard } from '@common/guard';
 
 @ApiTags('Odoo Webhooks')
 @Controller('odoo')
 export class OdooController {
   constructor(private readonly odooService: OdooService) {}
 
-  @Post('webhook/:eventName')
+  @Post('webhook')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(OdooWebhookGuard)
-  @ApiOperation({ summary: 'Handle Odoo webhook events' })
-  @ApiParam({
-    name: 'eventName',
-    required: true,
-    example: 'product_create',
-    description: 'Event name from Odoo (fallback if header not present)',
+  // @UseGuards(OdooWebhookGuard)
+  @ApiOperation({
+    summary: 'Handle Odoo webhook events',
+    description: 'Receives webhook events from Odoo. Event type is determined by x-odoo-event header.',
   })
-  @ApiHeader({
-    name: 'x-odoo-event',
-    required: false,
-    description: 'Actual event name (overrides path param)',
-    example: 'product_created',
-  })
-  @ApiHeader({
-    name: 'x-odoo-signature',
-    required: false,
-    description: 'Webhook signature for validation (if implemented)',
-  })
-  @ApiBody({
-    schema: {
-      example: {
-        id: 123,
-        name: 'Sample Product',
-        price: 100,
-        quantity: 10,
-      },
+  @ApiHeaders([
+    {
+      name: 'x-odoo-event',
+      required: true,
+      description: 'Event name from Odoo',
+      enum: ODOO_WEBHOOK_EVENT_NAMES,
     },
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Webhook processed successfully',
-    schema: {
-      example: {
-        success: true,
-        message: 'Webhook processed successfully',
-      },
+    {
+      name: 'x-odoo-signature',
+      required: false,
+      description: 'Webhook signature for validation',
     },
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized (invalid signature)',
-  })
-  async handlingWebhook(@Param('eventName') eventName: string, @Body() body: Record<string, any>, @Req() req: Request) {
-    const eventHeader = this.getCaseInsensitiveHeader(req.headers, 'x-odoo-event');
-    const finalEventName = eventHeader ?? eventName;
-    if (eventHeader && eventHeader !== eventName) {
-      console.warn(`Event mismatch: param=${eventName}, header=${eventHeader}. Using header value.`);
-    }
+  ])
+  @ApiResponse({ status: 200, description: 'Webhook processed successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid or missing event name' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async handlingWebhook(@Headers('x-odoo-event') eventHeader: string, @Body() body: WebhookDto) {
+    if (!eventHeader || !isValidOdooEventName(eventHeader)) throw new BadRequestException('Missing x-odoo-event or Invalid headeer');
 
-    return await this.odooService.handlingWebhook(finalEventName, body);
-  }
-
-  private getCaseInsensitiveHeader(headers: any, headerName: string): string | undefined {
-    const lowerHeaderName = headerName.toLowerCase();
-    for (const key of Object.keys(headers)) {
-      if (key.toLowerCase() === lowerHeaderName) {
-        return headers[key] as string;
-      }
-    }
-    return undefined;
+    return await this.odooService.handlingWebhook(eventHeader, body);
   }
 }

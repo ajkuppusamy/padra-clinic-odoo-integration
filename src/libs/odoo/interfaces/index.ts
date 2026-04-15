@@ -7,3 +7,4 @@ export * from './payments.interface';
 export * from './refunds.interface';
 export * from './appointments.interface';
 export * from './webhooks.interface';
+export * from './search.interface';

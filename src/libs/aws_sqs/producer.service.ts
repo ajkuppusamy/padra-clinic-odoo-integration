@@ -26,7 +26,9 @@ export class AwsSqsProducerService {
     try {
       const finalJobId = msgGroupId || uuidv4();
 
-      const groupId = eventName.toLowerCase();
+      const groupId = String(eventName).toLowerCase();
+
+      const deduplicationId = String(`${finalJobId}-${Date.now()}`);
 
       const enrichedPayload = {
         jobId: finalJobId,
@@ -36,33 +38,35 @@ export class AwsSqsProducerService {
       };
 
       const command = new SendMessageCommand({
-        MessageGroupId: groupId,
-        MessageDeduplicationId: `${finalJobId}-${Date.now()}`,
-        QueueUrl: queueUrl,
-        MessageBody: JSON.stringify(enrichedPayload),
+        MessageGroupId: groupId, // Must be string
+        MessageDeduplicationId: deduplicationId, // Must be string
+        QueueUrl: queueUrl, // Must be string
+        MessageBody: JSON.stringify(enrichedPayload), // Must be string
         MessageAttributes: {
           jobId: {
             DataType: 'String',
-            StringValue: finalJobId,
+            StringValue: String(finalJobId), // Ensure string
           },
           eventName: {
             DataType: 'String',
-            StringValue: eventName,
+            StringValue: String(eventName), // Ensure string
           },
           timestamp: {
             DataType: 'String',
-            StringValue: new Date().toISOString(),
+            StringValue: new Date().toISOString(), // Already string
           },
         },
       });
+
       const result = await this.sqs.send(command);
+
       this.logger.log(`Message sent to SQS: ${queueUrl}`, {
         messageId: result.MessageId,
         jobId: finalJobId,
-        groupId,
+        groupId: groupId,
       });
     } catch (error) {
-      this.logger.error(`Failed to send message to SQS: ${queueUrl}`, ['error']?.['stack']);
+      this.logger.error(`Failed to send message to SQS: ${queueUrl}`, error?.['stack'] || error);
       throw error;
     }
   }

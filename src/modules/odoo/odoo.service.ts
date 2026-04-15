@@ -1,21 +1,22 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Body, Injectable, Logger } from '@nestjs/common';
 import { OdooService as OdooLibService } from '@libs/odoo/odoo.service';
 import { QueueRepository, RequestRepository, ResponseRepository } from '@common/repositories';
 import {
+  ContactSearchResponse,
   CreateContactRequest,
   CreateContactResponse,
   CreateProductRequest,
   CreateQuotationRequest,
   ISO8601Date,
+  SearchReadParams,
   UpdateContactRequest,
   UpdateProductRequest,
 } from '@libs/odoo/interfaces';
 import { RequestType, RequestStatus, ResponseStatus, SourceType, QueueStatus, QueueType } from '@common/entities';
-import { OdooWebhookEvent } from './enums/webhook-event-enum';
 import { AwsSqsProducerService } from '@libs/aws_sqs/producer.service';
 import { ConfigService } from '@nestjs/config';
-import { v4 as uuidv4 } from 'uuid';
 import { HubspotService } from '@modules/hubspot/hubspot.service';
+import { WebhookDto } from './dto/odoo-webhook.dto';
 
 @Injectable()
 export class OdooService {
@@ -31,25 +32,25 @@ export class OdooService {
     private readonly hubService: HubspotService,
   ) {}
 
-  async handlingWebhook(eventName: string | OdooWebhookEvent, body: Record<string, any>) {
-    const method = this.handlingWebhook;
+  async handlingWebhook(eventName: string, body: WebhookDto) {
+    const method = this.handlingWebhook.name;
     const sqsUrl = this.configService.get<string>('AWS_Q1_QUEUE_URL') ?? '';
 
     if (!sqsUrl) {
       this.logger.error(`[${method}] Missing SQS URL`);
       throw new Error('SQS configuration error');
     }
-
+    this.logger.debug(`[${method}] Full webhook body: ` + JSON.stringify(body));
+    this.logger.debug(`[${method}] Event type: ${eventName}`);
     const payload = {
       ...body,
       eventType: eventName,
     };
-
+    this.logger.debug(`data : ${JSON.stringify(payload)}`);
     try {
       const record = await this.queueRepository.saveQueueItem(
         this.queueRepository.create({
           payload,
-          externalId: String(body?.id),
           queueType: QueueType.WEBHOOK,
           sourceType: SourceType.ODOO,
           status: QueueStatus.QUEUED,
@@ -89,32 +90,46 @@ export class OdooService {
     };
   }
 
-  async checkExistContact(email: string): Promise<boolean> {
-    return !!email; // replace with actual lookup
+  private async checkExistContact(jobId: string, email: string): Promise<string> {
+    const payload: SearchReadParams = {
+      domain: [['email', '=', email]],
+      fields: ['display_name', 'email', 'hubspot_contact_id'],
+      limit: 20,
+    };
+    const existcontact = await this.searchContact(jobId, payload, email);
+    return existcontact[0].hubspot_contact_id;
+  }
+
+  async searchContact(jobId: string, properties: SearchReadParams, property: string): Promise<ContactSearchResponse[]> {
+    return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/search_read', 'POST', properties, () => this.odooLibService.search(properties));
   }
 
   async contactProcess(properties: Record<string, any>, jobId: string): Promise<string> {
-    const generateRandomGmail = (prefix = 'user'): string => {
-      const random = Math.random().toString(36).substring(2, 6);
-      const timestamp = Date.now().toString().slice(-6);
-      return `${prefix}${timestamp}${random}@gmail.com`;
-    };
-
     const payload = this.buildContactProperties(properties);
 
-    payload.email = generateRandomGmail();
-    // const exists = await this.checkExistContact(email);
-    // const contactId = '1122'; // replace with real lookup
+    if (!payload.email) {
+      this.logger.warn(`[contactProcess] Missing email, jobId: ${jobId}`);
+      return '';
+    }
 
-    // if (exists && contactId) {
-    //   await this.updateContact(jobId, contactId, payload);
-    //   return contactId;
-    // }
+    this.logger.log(`[contactProcess] Processing contact: ${payload.email}, jobId: ${jobId}`);
 
-    const odooContactId = (await this.createContact(jobId, payload))?.contact_id;
-    const hubspotContactId = properties?.hs_object_id;
-    await this.hubService.updateContactById(jobId, hubspotContactId, { odoo_contact_id: odooContactId }); // custom Property
-    return odooContactId;
+    const existsOdooContactId = await this.checkExistContact(jobId, payload.email);
+
+    if (existsOdooContactId) {
+      const hubspotContactId = properties?.hs_object_id;
+
+      if (hubspotContactId) {
+        await this.hubService.updateContactById(jobId, hubspotContactId, {
+          odoo_contact_id: existsOdooContactId,
+        });
+      }
+
+      return existsOdooContactId;
+    }
+
+    const created = await this.createContact(jobId, payload);
+    return created?.contact_id ?? '';
   }
 
   async createContact(jobId: string, properties: CreateContactRequest): Promise<CreateContactResponse> {

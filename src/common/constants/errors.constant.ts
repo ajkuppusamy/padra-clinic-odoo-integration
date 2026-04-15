@@ -40,4 +40,7 @@ export enum ERROR_MESSAGES {
   // UNIVERSAL VALID / REQUIRED
   VALID_TEXT = 'a valid text.',
   IS_REQUIRED = 'is required.',
+
+  // Header missing
+  HEADER_MISSING = 'Missing x-odoo-event or Invalid headeer',
 }
