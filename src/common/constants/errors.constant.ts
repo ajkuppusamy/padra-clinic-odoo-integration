@@ -42,5 +42,5 @@ export enum ERROR_MESSAGES {
   IS_REQUIRED = 'is required.',
 
   // Header missing
-  HEADER_MISSING = 'Missing x-odoo-event or Invalid headeer',
+  HEADER_MISSING = 'Missing x-odoo-event or Invalid header',
 }

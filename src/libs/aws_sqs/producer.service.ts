@@ -38,22 +38,22 @@ export class AwsSqsProducerService {
       };
 
       const command = new SendMessageCommand({
-        MessageGroupId: groupId, // Must be string
-        MessageDeduplicationId: deduplicationId, // Must be string
-        QueueUrl: queueUrl, // Must be string
-        MessageBody: JSON.stringify(enrichedPayload), // Must be string
+        MessageGroupId: groupId,
+        MessageDeduplicationId: deduplicationId,
+        QueueUrl: queueUrl,
+        MessageBody: JSON.stringify(enrichedPayload),
         MessageAttributes: {
           jobId: {
             DataType: 'String',
-            StringValue: String(finalJobId), // Ensure string
+            StringValue: String(finalJobId),
           },
           eventName: {
             DataType: 'String',
-            StringValue: String(eventName), // Ensure string
+            StringValue: String(eventName),
           },
           timestamp: {
             DataType: 'String',
-            StringValue: new Date().toISOString(), // Already string
+            StringValue: new Date().toISOString(),
           },
         },
       });

@@ -1,144 +1,195 @@
-//odoo-webhook.dto.ts
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsBoolean, IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class BaseEventDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
     enum: ['quotation_status_update', 'invoice_created', 'payment_created', 'refund_credit_note', 'payment_link_tabi_tamara', 'product_create', 'product_update'],
     description: 'Event type',
   })
+  @IsOptional()
+  @IsString()
   event?: string;
 
   @ApiPropertyOptional({ example: '2024-01-15T10:30:00Z' })
+  @IsOptional()
+  @IsString()
   timestamp?: string;
 }
 
 export class QuotationStatusUpdateEventDto extends BaseEventDto {
-  @ApiProperty({ example: 'QUO-001', required: false })
+  @ApiPropertyOptional({ example: 'QUO-001' })
+  @IsOptional()
+  @IsString()
   quotation_id?: string;
 
-  @ApiProperty({ example: 'REF-2024-001', required: false })
+  @ApiPropertyOptional({ example: 'REF-2024-001' })
+  @IsOptional()
+  @IsString()
   quotation_reference?: string;
 
-  @ApiProperty({ example: 'CONTACT-123', required: false })
+  @ApiPropertyOptional({ example: 'CONTACT-123' })
+  @IsOptional()
+  @IsString()
   contact_id?: string;
 
-  @ApiProperty({ enum: ['draft', 'confirmed', 'done', 'cancel'], example: 'draft', required: false })
+  @ApiPropertyOptional({ enum: ['draft', 'confirmed', 'done', 'cancel'], example: 'draft' })
+  @IsOptional()
+  @IsString()
   previous_status?: string;
 
-  @ApiProperty({ enum: ['draft', 'confirmed', 'done', 'cancel'], example: 'confirmed', required: false })
+  @ApiPropertyOptional({ enum: ['draft', 'confirmed', 'done', 'cancel'], example: 'confirmed' })
+  @IsOptional()
+  @IsString()
   new_status?: string;
 
-  @ApiProperty({ example: 1500.0, required: false })
+  @ApiPropertyOptional({ example: 1500.0 })
+  @IsOptional()
+  @IsNumber()
   total_amount?: number;
 
-  @ApiProperty({ example: 'USD', required: false })
+  @ApiPropertyOptional({ example: 'USD' })
+  @IsOptional()
+  @IsString()
   currency?: string;
 
-  @ApiProperty({ enum: ['odoo_ui', 'api'], example: 'api', required: false })
+  @ApiPropertyOptional({ enum: ['odoo_ui', 'api'], example: 'api' })
+  @IsOptional()
+  @IsString()
   source?: string;
 }
 
 // Invoice Created Event
 export class InvoiceCreatedEventDto extends QuotationStatusUpdateEventDto {
-  @ApiProperty({ example: 'INV-2024-001', required: false })
+  @ApiPropertyOptional({ example: 'INV-2024-001' })
+  @IsOptional()
+  @IsString()
   invoice_id?: string;
 
-  @ApiProperty({ example: 'INV-REF-001', required: false })
+  @ApiPropertyOptional({ example: 'INV-REF-001' })
+  @IsOptional()
+  @IsString()
   invoice_reference?: string;
 
-  @ApiProperty({ example: '2024-01-15', required: false })
+  @ApiPropertyOptional({ example: '2024-01-15' })
+  @IsOptional()
+  @IsString()
   invoice_date?: string;
 
-  @ApiProperty({ example: '2024-02-15', required: false })
+  @ApiPropertyOptional({ example: '2024-02-15' })
+  @IsOptional()
+  @IsString()
   due_date?: string;
 
-  @ApiProperty({ enum: ['not_paid', 'partial', 'paid'], example: 'not_paid', required: false })
+  @ApiPropertyOptional({ enum: ['not_paid', 'partial', 'paid'], example: 'not_paid' })
+  @IsOptional()
+  @IsString()
   payment_status?: string;
 }
 
 // Payment Created Event
 export class PaymentCreatedEventDto extends InvoiceCreatedEventDto {
-  @ApiProperty({ example: 'TXN-456', required: false })
+  @ApiPropertyOptional({ example: 'TXN-456' })
+  @IsOptional()
+  @IsString()
   transaction_id?: string;
 
-  @ApiProperty({ enum: ['tabi', 'tamara', 'cash', 'bank_transfer', 'credit_card'], example: 'credit_card', required: false })
+  @ApiPropertyOptional({ enum: ['tabi', 'tamara', 'cash', 'bank_transfer', 'credit_card'], example: 'credit_card' })
+  @IsOptional()
+  @IsString()
   payment_method?: string;
 
-  @ApiProperty({ example: 1500.0, required: false })
+  @ApiPropertyOptional({ example: 1500.0 })
+  @IsOptional()
+  @IsNumber()
   amount_paid?: number;
 
-  @ApiProperty({ example: '2024-01-15', required: false })
+  @ApiPropertyOptional({ example: '2024-01-15' })
+  @IsOptional()
+  @IsString()
   payment_date?: string;
 }
 
 // Refund Credit Note Event
 export class RefundCreditNoteEventDto extends PaymentCreatedEventDto {
-  @ApiProperty({ example: 'REF-001', required: false })
+  @ApiPropertyOptional({ example: 'REF-001' })
+  @IsOptional()
+  @IsString()
   refund_id?: string;
 
-  @ApiProperty({ example: '2024-01-20', required: false })
+  @ApiPropertyOptional({ example: '2024-01-20' })
+  @IsOptional()
+  @IsString()
   refund_date?: string;
 
-  @ApiProperty({ example: 500.0, required: false })
+  @ApiPropertyOptional({ example: 500.0 })
+  @IsOptional()
+  @IsNumber()
   refund_amount?: number;
 
-  @ApiProperty({ example: 'Customer return', required: false })
+  @ApiPropertyOptional({ example: 'Customer return' })
+  @IsOptional()
+  @IsString()
   reason?: string;
 
-  @ApiProperty({ example: 'INV-2024-001', required: false })
+  @ApiPropertyOptional({ example: 'INV-2024-001' })
+  @IsOptional()
+  @IsString()
   original_invoice_id?: string;
 }
 
 // Payment Link Tabi Tamara Event
 export class PaymentLinkTabiTamaraEventDto extends RefundCreditNoteEventDto {
-  @ApiProperty({ example: 'https://payment.link/xyz', nullable: true, required: false })
+  @ApiPropertyOptional({ example: 'https://payment.link/xyz', nullable: true })
+  @IsOptional()
+  @IsString()
   payment_link_url?: string | null;
 
-  @ApiProperty({ example: 1500.0, required: false })
+  @ApiPropertyOptional({ example: 1500.0 })
+  @IsOptional()
+  @IsNumber()
   amount?: number;
 }
 
 // Product Event (for both create and update)
 export class ProductEventDto extends PaymentLinkTabiTamaraEventDto {
-  @IsNumber()
+  @ApiPropertyOptional({ example: 123 })
   @IsOptional()
-  @ApiProperty({ example: 123, required: false })
+  @IsNumber()
   id?: number;
 
-  @IsString()
+  @ApiPropertyOptional({ example: 'PROD-0e3wssw' })
   @IsOptional()
-  @ApiProperty({ example: 'PROD-0e3wssw', required: false })
+  @IsString()
   product_id?: string;
 
-  @IsString()
+  @ApiPropertyOptional({ example: 'Sample Product' })
   @IsOptional()
-  @ApiProperty({ example: 'Sample Product', required: false })
+  @IsString()
   name?: string;
 
-  @IsNumber()
+  @ApiPropertyOptional({ example: 100.0 })
   @IsOptional()
-  @ApiPropertyOptional({ example: 100.0, required: false })
+  @IsNumber()
   price?: number;
 
-  @IsString()
+  @ApiPropertyOptional({ example: 'PROD-001' })
   @IsOptional()
-  @ApiPropertyOptional({ example: 'PROD-001', required: false })
+  @IsString()
   default_code?: string;
 
-  @IsString()
+  @ApiPropertyOptional({ example: 'Product description' })
   @IsOptional()
-  @ApiPropertyOptional({ example: 'Product description', required: true })
+  @IsString()
   description?: string;
 
-  @IsNumber()
+  @ApiPropertyOptional({ example: 50 })
   @IsOptional()
-  @ApiPropertyOptional({ example: 50, required: false })
+  @IsNumber()
   qty_available?: number;
 
-  @IsBoolean()
+  @ApiPropertyOptional({ example: true })
   @IsOptional()
-  @ApiPropertyOptional({ example: true, required: false })
+  @IsBoolean()
   active?: boolean;
 }
 
