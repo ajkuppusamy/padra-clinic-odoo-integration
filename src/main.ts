@@ -4,7 +4,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { ConfigService } from '@nestjs/config';
-import { Request, Response, NextFunction, CookieOptions, RequestHandler } from 'express';
+import { Request, RequestHandler } from 'express';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import * as bodyParser from 'body-parser';
 import { AppModule } from './app.module';
@@ -39,14 +39,20 @@ async function bootstrap() {
   app.disable('x-powered-by');
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle(`padra-clinic-odoo-integration API - (${nodeEnv})`)
-    .setDescription('padra-clinic-odoo-integration API Documentation')
+    .setTitle(`Padra clinic odoo integration API - (${nodeEnv})`)
+    .setDescription('Padra clinic odoo integration API Documentation')
     .setVersion('1.0')
     .addBearerAuth()
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('/api/doc', app, document);
+  SwaggerModule.setup('/api/v1/doc', app, document);
+
+  // Add redirection to /api/v1/swagger
+  const redirectToSwagger = (req: any, res: any, next: any) => {
+    if (req.path === '/') res.redirect('/api/v1/doc');
+    else next();
+  };
 
   app.useGlobalInterceptors(new ResponseInterceptor());
 
@@ -68,6 +74,9 @@ async function bootstrap() {
   );
 
   loadHubSpotConfig(nodeEnv as unknown as string);
+  app.use('/api/v1', redirectToSwagger);
+  app.use('/api', redirectToSwagger);
+  app.use('/', redirectToSwagger);
 
   await app.listen(port);
   Logger.log(`🚀 padra-clinic-odoo-integration Express app server running on port ${port} in ${nodeEnv} mode`);
