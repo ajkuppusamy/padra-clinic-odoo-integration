@@ -19,6 +19,9 @@ import { QueueRepository, RequestRepository, ResponseRepository } from '@common/
         entities: [Queue, Request, Response],
         synchronize: configService.get('NODE_ENV') === 'dev',
         autoLoadEntities: true,
+        ssl: {
+          rejectUnauthorized: false,
+        },
       }),
       inject: [ConfigService],
     }),
