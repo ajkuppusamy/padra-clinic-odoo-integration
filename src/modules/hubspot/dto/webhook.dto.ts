@@ -35,6 +35,7 @@ export class HubspotWebhookDto {
   })
   @IsNumber()
   @IsNotEmpty()
+  @IsOptional()
   appId!: number;
 
   @ApiProperty({
@@ -44,6 +45,7 @@ export class HubspotWebhookDto {
   })
   @IsNumber()
   @IsNotEmpty()
+  @IsOptional()
   eventId!: number;
 
   @ApiProperty({
@@ -51,8 +53,9 @@ export class HubspotWebhookDto {
     example: 456790,
     type: Number,
   })
-  @IsNumber()
+  @IsString()
   @IsNotEmpty()
+  @IsOptional()
   subscriptionId!: number;
 
   @ApiProperty({
@@ -60,8 +63,9 @@ export class HubspotWebhookDto {
     example: 12345678,
     type: Number,
   })
-  @IsNumber()
+  @IsString()
   @IsNotEmpty()
+  @IsOptional()
   portalId!: number;
 
   @ApiProperty({
@@ -71,6 +75,7 @@ export class HubspotWebhookDto {
   })
   @IsNumber()
   @IsNotEmpty()
+  @IsOptional()
   occurredAt!: number;
 
   @ApiProperty({
@@ -80,6 +85,7 @@ export class HubspotWebhookDto {
   })
   @IsEnum(SubscriptionType)
   @IsNotEmpty()
+  @IsOptional()
   subscriptionType!: SubscriptionType;
 
   @ApiProperty({
@@ -97,9 +103,10 @@ export class HubspotWebhookDto {
     example: 5001,
     type: Number,
   })
-  @IsNumber()
+  @IsString()
+  @IsOptional()
   @IsNotEmpty()
-  objectId!: number;
+  objectId!: string;
 
   @ApiProperty({
     description: 'Source of the change',
@@ -137,6 +144,7 @@ export class HubspotWebhookDto {
   })
   @IsEnum(ObjectType)
   @IsNotEmpty()
+  @IsOptional()
   objectType!: ObjectType;
 
   @ApiProperty({
@@ -146,6 +154,7 @@ export class HubspotWebhookDto {
   })
   @IsString()
   @IsNotEmpty()
+  @IsOptional()
   objectTypeId!: string;
 
   @ApiProperty({
