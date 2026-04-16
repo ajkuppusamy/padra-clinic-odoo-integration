@@ -1,41 +1,54 @@
 export const toHubspotDateValue = (input: any): number => {
-  if (!input) return Date.now();
+  let date: Date;
 
-  let timestamp: number;
+  // 1. Handle empty
+  if (!input) {
+    date = new Date();
+  }
 
-  // Step 1: Normalize to timestamp
-  if (typeof input === 'number') {
-    timestamp = input.toString().length === 10 ? input * 1000 : input;
-  } else if (input instanceof Date) {
-    timestamp = input.getTime();
-  } else if (typeof input === 'string') {
-    let date = input.trim().replace(/\./g, '-').replace(/\//g, '-');
+  // 2. Number (seconds / ms)
+  else if (typeof input === 'number') {
+    date = new Date(input < 1e12 ? input * 1000 : input);
+  }
 
-    let parsed = new Date(date);
+  // 3. Date object
+  else if (input instanceof Date) {
+    date = input;
+  }
 
-    if (isNaN(parsed.getTime())) {
-      const parts = date.split('-');
+  // 4. String formats
+  else if (typeof input === 'string') {
+    const value = input.trim();
+
+    // ISO or standard parse
+    date = new Date(value);
+
+    // If invalid → try manual parsing (DD-MM-YYYY, DD/MM/YYYY, etc.)
+    if (isNaN(date.getTime())) {
+      const parts = value.replace(/[./]/g, '-').split('-');
 
       if (parts.length === 3) {
         let [p1, p2, p3] = parts.map(Number);
 
         if (p1 > 31) {
-          parsed = new Date(`${p1}-${p2}-${p3}`);
-        } else if (p1 <= 31 && p2 <= 12) {
-          parsed = new Date(`${p3}-${p2}-${p1}`);
+          // YYYY-MM-DD
+          date = new Date(p1, p2 - 1, p3);
+        } else if (p3 > 31) {
+          // DD-MM-YYYY
+          date = new Date(p3, p2 - 1, p1);
         } else {
-          parsed = new Date(`${p3}-${p1}-${p2}`);
+          // fallback (MM-DD-YYYY)
+          date = new Date(p3, p1 - 1, p2);
         }
       }
     }
-
-    timestamp = !isNaN(parsed.getTime()) ? parsed.getTime() : Date.now();
   } else {
-    timestamp = Date.now();
+    date = new Date();
   }
 
-  // Step 2: Convert to UTC midnight (IMPORTANT for HubSpot date field)
-  const d = new Date(timestamp);
+  if (isNaN(date.getTime())) {
+    date = new Date();
+  }
 
-  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
 };
