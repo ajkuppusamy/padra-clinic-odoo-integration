@@ -103,10 +103,10 @@ export class HubspotWebhookDto {
     example: 5001,
     type: Number,
   })
-  @IsString()
+  @IsNumber()
   @IsOptional()
   @IsNotEmpty()
-  objectId!: string;
+  objectId!: number;
 
   @ApiProperty({
     description: 'Source of the change',
