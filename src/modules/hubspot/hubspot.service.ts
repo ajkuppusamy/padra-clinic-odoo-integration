@@ -460,22 +460,39 @@ export class HubspotService {
       this.logger.debug(`Product Id Not Found So skipped`);
       return;
     }
+    try {
+      const hubSpotProductId = await this.fetchProductByOdooProductId(jobId, properties.product_id);
 
-    if (isCreateEvent) {
-      return await this.createProduct(jobId, productProperties);
+      if (isCreateEvent) {
+        if (hubSpotProductId) {
+          this.logger.debug(`Product already exists in HubSpot (ID: ${hubSpotProductId}), updating instead of creating`);
+          return await this.updateProductById(jobId, hubSpotProductId, productProperties);
+        }
+
+        return await this.createProduct(jobId, productProperties);
+      }
+
+      if (isUpdateEvent) {
+        if (!hubSpotProductId) {
+          this.logger.debug(`Product not found in HubSpot, creating new product`);
+          return await this.createProduct(jobId, productProperties);
+        }
+
+        return await this.updateProductById(jobId, hubSpotProductId, productProperties);
+      }
+
+      if (!hubSpotProductId) {
+        this.logger.debug(`Fallback: Product not found, creating`);
+        return await this.createProduct(jobId, productProperties);
+      }
+
+      this.logger.debug(`Fallback: Product found (ID: ${hubSpotProductId}), updating`);
+
+      return await this.updateProductById(jobId, hubSpotProductId, productProperties);
+    } catch (error) {
+      this.logger.error(`Error processing product ${properties.product_id}`, 'error'?.['stack']);
+      await this.queueRepository.updateStatus(jobId, QueueStatus.FAILED, error?.['message']);
     }
-
-    if (isUpdateEvent) {
-      return await this.updateProductById(jobId, properties.product_id, productProperties);
-    }
-
-    const hubSpotProductId = await this.fetchProductByOdooProductId(jobId, properties.product_id);
-
-    if (!hubSpotProductId) {
-      return await this.createProduct(jobId, productProperties);
-    }
-
-    return await this.updateProductById(jobId, hubSpotProductId, productProperties);
   }
 
   public async fetchAssociatedDealIdByQuoteId(quoteId: string, jobId: string): Promise<string | null> {
