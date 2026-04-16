@@ -339,7 +339,7 @@ export class HubspotService {
 
   public async searchObjectByType(jobId: string, hubspotObject: HubspotObjects, request: PublicObjectSearchRequest, after?: string, limit?: number) {
     return this.executeTrackedRequest(jobId, RequestType.SEARCH, jobId, `${hubspotObject}/search`, 'POST', request, () =>
-      this.hubspotLibService.searchObject(hubspotObject, { after, limit }),
+      this.hubspotLibService.searchObject(hubspotObject, request, { after, limit }),
     );
   }
 
@@ -407,7 +407,7 @@ export class HubspotService {
       ],
       limit: 1,
     });
-    await delay(5000); // delay setup
+    await delay(1000); // delay setup
     const searchResult = await this.searchObjectByType(jobId, HubspotObjects.PRODUCTS, searchRequest, undefined, 1);
 
     return searchResult?.results[0]?.id ?? null;
@@ -450,9 +450,7 @@ export class HubspotService {
     const productProperties = this.buildProductsPayload(properties);
 
     const normalizedEvent = odooEvent?.toLowerCase() || '';
-
     const isCreateEvent = normalizedEvent.includes('product_create') || normalizedEvent.includes('product_created');
-
     const isUpdateEvent = normalizedEvent.includes('product_update') || normalizedEvent.includes('product_updated');
 
     if (!properties?.product_id) {
