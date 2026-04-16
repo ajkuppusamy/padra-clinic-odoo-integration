@@ -231,24 +231,25 @@ export class IntegrationService {
   }
 
   private async buildPaymentUpdatePayload(deal: SimplePublicObjectWithAssociations, event: PaymentCreatedEvent) {
-    const { stage, amount, odoo_payment_amount } = deal.properties;
+    const { dealstage, amount, odoo_payment_amount } = deal.properties;
 
-    const totalAmount = Number(amount);
-    const paidAmount = Number(event?.amount_paid);
+    const totalAmount = amount;
+    const paidAmount = event?.amount_paid;
 
     const payload: Record<string, any> = {
       odoo_payment_amount: paidAmount,
-      odoo_last_payment_date: toHubspotDateValue(event.payment_date),
+      odoo_last_payment_date: toHubspotDateValue(event?.payment_date),
     };
 
-    if (paidAmount >= totalAmount) {
-      payload.stage = await this.configService.get<string>('HUBSPOT_DEAL_STAGE_CLOSED_WON');
-    }
+    // if (paidAmount >= totalAmount) {
+    //   payload.stage = await this.configService.get<string>('HUBSPOT_DEAL_STAGE_CLOSED_WON');
+    // }
 
     this.logger.debug(`[buildPaymentUpdatePayload]`, {
-      existingStage: stage,
+      existingStage: dealstage,
       oldPaid: odoo_payment_amount,
       newPaid: paidAmount,
+      dealAmount: totalAmount,
     });
 
     return payload;
