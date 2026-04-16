@@ -69,7 +69,7 @@ export class IntegrationService {
       });
       this.logger.verbose(`Payment Method : ${deal?.properties?.payment_method}`);
 
-      const quoteId = await this.hubspotService.quoteProcess(jobId, dealId, deal.properties, quotation.quotation_id);
+      const quoteId = await this.hubspotService.quoteProcess(jobId, dealId, deal.properties, quotation.quotation_id, lineItems);
 
       if (!quoteId) return await this.handleSkip(jobId, context, 'Quote creation failed');
 

@@ -535,12 +535,22 @@ export class HubspotService {
     };
   }
 
-  public async quoteProcess(jobId: string, dealId: string, properties: Record<string, any>, quotationId?: string) {
+  public async quoteProcess(jobId: string, dealId: string, properties: Record<string, any>, quotationId?: string, lineItems: SimplePublicObject[] = []) {
     const payload: SimplePublicObjectInputForCreate = {
       properties: this.buildQuotePayload({ quotationId, ...properties }),
-      associations: [{ to: { id: dealId }, types: [{ associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined, associationTypeId: 64 }] }],
+      associations: [
+        {
+          to: { id: dealId },
+          types: [{ associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined, associationTypeId: 64 }],
+        },
+        ...lineItems.map(({ id }) => ({
+          to: { id },
+          types: [{ associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined, associationTypeId: 67 }],
+        })),
+      ],
     };
-    return await this.createQuote(jobId, payload);
+
+    return this.createQuote(jobId, payload);
   }
 
   public async processCreateLinetems(jobId: string, dealId: string, payment: PaymentCreatedEvent) {
