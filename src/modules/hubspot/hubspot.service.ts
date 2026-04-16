@@ -333,7 +333,7 @@ export class HubspotService {
 
   public async updateDealById(jobId: string, dealId: string, properties: Record<string, any>) {
     return this.executeTrackedRequest(jobId, RequestType.UPDATE_DEAL, dealId, `/deals/${dealId}`, 'PUT', properties, () =>
-      this.hubspotLibService.updateHubspotObject(HubspotObjects.PRODUCTS, dealId, properties),
+      this.hubspotLibService.updateHubspotObject(HubspotObjects.DEALS, dealId, properties),
     );
   }
 
