@@ -398,7 +398,7 @@ export class HubspotService {
         {
           filters: [
             {
-              propertyName: 'hs_sku',
+              propertyName: 'odoo_product_id',
               operator: FilterOperatorEnum.Eq,
               value: odooProductId,
             },
