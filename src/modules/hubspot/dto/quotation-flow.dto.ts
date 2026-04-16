@@ -4,15 +4,15 @@ import { Type } from 'class-transformer';
 
 export enum PaymentMethod {
   // Card Payment Methods
-  DEBIT = 'DEBIT',
-  CREDIT = 'CREDIT',
+  DEBIT = 'Debit',
+  CREDIT = 'Credit',
 
   // Cash Payment Method
-  CASH = 'CASH',
+  CASH = 'Cash',
 
   // Online Paymnet Methods
-  IFINANCE = 'IFINANCE',
-  BEAUTIFI = 'BEAUTIFI',
+  IFINANCE = 'iFinance',
+  BEAUTIFI = 'Beautifi',
 }
 
 export class Quotation {
