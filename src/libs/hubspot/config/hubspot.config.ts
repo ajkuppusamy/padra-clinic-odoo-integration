@@ -7,9 +7,11 @@ type Stage = 'dev' | 'prod';
 const configs: Record<Stage, Record<string, string>> = {
   dev: {
     HUBSPOT_DEAL_STAGE_CLOSED_WON: 'dev_closedwon_id',
+    HUBSPOT_QUOTATION_STAGE_ID: '2917353456',
   },
   prod: {
     HUBSPOT_DEAL_STAGE_CLOSED_WON: 'prod_closedwon_id',
+    HUBSPOT_QUOTATION_STAGE_ID: '',
   },
 };
 

@@ -16,7 +16,7 @@ import { RequestType, RequestStatus, ResponseStatus, SourceType, QueueStatus, Qu
 import { AwsSqsProducerService } from '@libs/aws_sqs/producer.service';
 import { ConfigService } from '@nestjs/config';
 import { HubspotService } from '@modules/hubspot/hubspot.service';
-import { WebhookDto } from './dto/odoo-webhook.dto';
+import { OdooWebhookDto } from './dto/odoo-webhook.dto';
 
 @Injectable()
 export class OdooService {
@@ -32,7 +32,7 @@ export class OdooService {
     private readonly hubService: HubspotService,
   ) {}
 
-  async handlingWebhook(eventName: string, body: WebhookDto) {
+  async handlingWebhook(eventName: string, body: OdooWebhookDto) {
     const method = this.handlingWebhook.name;
     const sqsUrl = this.configService.get<string>('AWS_Q1_QUEUE_URL') ?? '';
 
@@ -97,7 +97,7 @@ export class OdooService {
       limit: 20,
     };
     const existcontact = await this.searchContact(jobId, payload, email);
-    return existcontact[0].hubspot_contact_id;
+    return existcontact[0]?.hubspot_contact_id;
   }
 
   async searchContact(jobId: string, properties: SearchReadParams, property: string): Promise<ContactSearchResponse[]> {

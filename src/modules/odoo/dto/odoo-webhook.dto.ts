@@ -193,4 +193,4 @@ export class ProductEventDto extends PaymentLinkTabiTamaraEventDto {
   active?: boolean;
 }
 
-export class WebhookDto extends ProductEventDto {}
+export class OdooWebhookDto extends ProductEventDto {}

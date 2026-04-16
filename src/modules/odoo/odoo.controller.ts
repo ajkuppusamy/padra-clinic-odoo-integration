@@ -3,7 +3,7 @@ import { OdooService } from './odoo.service';
 import { ApiTags, ApiOperation, ApiHeaders, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { ODOO_WEBHOOK_EVENT_NAMES, isValidOdooEventName } from './interfaces/odoo-webhook';
 import { BadRequestException } from '@nestjs/common';
-import { ProductEventDto, WebhookDto } from './dto/odoo-webhook.dto';
+import { OdooWebhookDto } from './dto/odoo-webhook.dto';
 import { OdooWebhookGuard } from '@common/guard';
 
 @ApiTags('Odoo Webhooks')
@@ -34,7 +34,7 @@ export class OdooController {
   @ApiResponse({ status: 200, description: 'Webhook processed successfully' })
   @ApiResponse({ status: 400, description: 'Invalid or missing event name' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async handlingWebhook(@Headers('x-odoo-event') eventHeader: string, @Body() body: WebhookDto) {
+  async handlingWebhook(@Headers('x-odoo-event') eventHeader: string, @Body() body: OdooWebhookDto) {
     if (!eventHeader || !isValidOdooEventName(eventHeader)) throw new BadRequestException('Missing x-odoo-event or Invalid headeer');
 
     return await this.odooService.handlingWebhook(eventHeader, body);

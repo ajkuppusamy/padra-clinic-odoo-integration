@@ -504,13 +504,17 @@ export class HubspotService {
 
   private buildQuotePayload(properties: Record<string, any>) {
     this.logger.debug(`${this.buildQuotePayload.name} Properties=${JSON.stringify(properties)}`);
+    const date = new Date();
+    date.setDate(date.getDate() + 30);
+
+    const expiredDate = date.toISOString().split('T')[0];
 
     return {
       hs_title: properties?.hs_title ?? properties?.dealname,
       hs_status: 'DRAFT',
       hs_language: 'en',
       hs_currency: properties?.hs_currency ?? 'USD',
-      hs_expiration_date: properties?.hs_expiration_date ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      hs_expiration_date: properties?.hs_expiration_date ?? expiredDate,
       // hs_total_amount: properties?.amount || 0,
       odoo_quotation_id: properties?.quotationId,
     };

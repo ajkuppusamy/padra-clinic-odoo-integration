@@ -44,6 +44,11 @@ export class IntegrationService {
         lineItemsCount: lineItems.length,
       });
 
+      const stageId = this.configService.get<string>('HUBSPOT_QUOTATION_STAGE_ID');
+      this.logger.debug(`Deal Stage Id : ${stageId}`);
+
+      if (deal.properties.dealstage !== stageId) return await this.handleSkip(jobId, context, 'Deal Stage not Quotation Process');
+
       const odooContactId = await this.processContacts(contacts, jobId);
 
       if (!odooContactId) return await this.handleSkip(jobId, context, 'No associated contact found');
@@ -84,8 +89,6 @@ export class IntegrationService {
         error: error?.['message'],
         stack: error?.['stack'],
       });
-
-      throw error;
     }
   }
 
@@ -180,12 +183,12 @@ export class IntegrationService {
    * COMMON SKIP HANDLER
    * =========================
    */
-  private async handleSkip(jobId: string, context: string, reason: string) {
+  private async handleSkip(jobId: string, context: string, reason: string): Promise<void> {
     this.logger.warn(`[${context}] Skipped`, { jobId, reason });
 
     await this.queueRepository.updateStatus(jobId, QueueStatus.SKIPPED);
 
-    throw new Error(reason);
+    // throw new Error(reason);
   }
 
   /**
