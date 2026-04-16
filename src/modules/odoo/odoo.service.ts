@@ -115,10 +115,9 @@ export class OdooService {
     this.logger.log(`[contactProcess] Processing contact: ${payload.email}, jobId: ${jobId}`);
 
     const existsOdooContactId = await this.checkExistContact(jobId, payload.email);
+    const hubspotContactId = properties?.hs_object_id;
 
     if (existsOdooContactId) {
-      const hubspotContactId = properties?.hs_object_id;
-
       if (hubspotContactId) {
         await this.hubService.updateContactById(jobId, hubspotContactId, {
           odoo_contact_id: existsOdooContactId,
@@ -129,6 +128,9 @@ export class OdooService {
     }
 
     const created = await this.createContact(jobId, payload);
+    await this.hubService.updateContactById(jobId, hubspotContactId, {
+      odoo_contact_id: created?.contact_id,
+    });
     return created?.contact_id ?? '';
   }
 
