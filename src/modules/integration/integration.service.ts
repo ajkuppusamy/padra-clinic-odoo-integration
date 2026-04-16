@@ -296,9 +296,9 @@ export class IntegrationService {
     const deal = dealsMetaData.deal;
 
     const payload = await this.buildPaymentUpdatePayload(deal, event);
-    delete payload.stage;
-
-    if (payload.amount !== event.amount_paid.toString()) {
+    delete payload?.dealstage;
+    this.logger.debug(`Deal Properties : ${JSON.stringify(payload)}`);
+    if (payload?.amount !== event?.amount_paid?.toString()) {
       await this.handleInvoiceProcess(jobId, deal, event, invoiceId, contacts);
     }
 
