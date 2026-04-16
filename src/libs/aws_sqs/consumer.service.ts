@@ -26,7 +26,7 @@ export class AwsSqsConsumerService {
    * @returns {Promise<void>}
    */
   @SqsMessageHandler(process.env.AWS_Q1_QUEUE_NAME as unknown as string, false)
-  async processMigrationItemQueue(message: Message): Promise<void> {
+  async sqsMessageHandler(message: Message): Promise<void> {
     try {
       this.logger.debug(`Message received from AWS SQS, ${JSON.stringify(message)}`);
 
@@ -55,6 +55,7 @@ export class AwsSqsConsumerService {
 
         default:
           this.logger.warn(`Unhandled eventName: ${eventName}`);
+          await this.integrationService.handleSkip(jobId, this.sqsMessageHandler.name, `Unhandled eventName: ${eventName}`);
           break;
       }
 

@@ -54,6 +54,7 @@ export class OdooService {
           queueType: QueueType.WEBHOOK,
           sourceType: SourceType.ODOO,
           status: QueueStatus.QUEUED,
+          event: eventName,
         }),
       );
       await this.sqsProducerService.sendMessage(sqsUrl, record.jobId, payload, eventName);

@@ -24,11 +24,12 @@ export class QueueRepository extends BaseRepository<Queue> {
     });
   }
 
-  async updateStatus(jobId: string, status: QueueStatus, error?: string): Promise<void> {
+  async updateStatus(jobId: string, status: QueueStatus, error?: string, message?: string): Promise<void> {
     await this.getRepo().update(
       { jobId },
       {
         status,
+        ...(message && { message }),
         ...(error && { error }),
         ...(status === QueueStatus.COMPLETED || status === QueueStatus.FAILED ? { processedAt: new Date() } : {}),
       },

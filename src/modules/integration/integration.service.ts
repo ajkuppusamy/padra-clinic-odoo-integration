@@ -184,10 +184,10 @@ export class IntegrationService {
    * COMMON SKIP HANDLER
    * =========================
    */
-  private async handleSkip(jobId: string, context: string, reason: string): Promise<void> {
+  public async handleSkip(jobId: string, context: string, reason: string): Promise<void> {
     this.logger.warn(`[${context}] Skipped`, { jobId, reason });
 
-    await this.queueRepository.updateStatus(jobId, QueueStatus.SKIPPED);
+    await this.queueRepository.updateStatus(jobId, QueueStatus.SKIPPED, undefined, reason);
 
     // throw new Error(reason);
   }
@@ -298,9 +298,10 @@ export class IntegrationService {
     const payload = await this.buildPaymentUpdatePayload(deal, event);
     delete payload?.dealstage;
     this.logger.debug(`Deal Properties : ${JSON.stringify(payload)}`);
-    if (payload?.amount !== event?.amount_paid?.toString()) {
-      await this.handleInvoiceProcess(jobId, deal, event, invoiceId, contacts);
-    }
+
+    // if (payload?.amount !== event?.amount_paid?.toString()) {
+    //   await this.handleInvoiceProcess(jobId, deal, event, invoiceId, contacts);
+    // }
 
     await this.updateDeal(jobId, dealId, payload);
 

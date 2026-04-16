@@ -42,6 +42,12 @@ export class Queue extends BaseModel {
   @Column({ name: 'source_type', type: 'enum', enum: SourceType })
   sourceType!: SourceType;
 
+  @Column({ name: 'event_type', type: 'varchar', length: 255, nullable: true })
+  event!: string | null;
+
+  @Column({ name: 'message', type: 'varchar', length: 255, nullable: true })
+  message!: string | null;
+
   @Column({ name: 'external_id', type: 'varchar', length: 255, nullable: true })
   externalId!: string | null;
 

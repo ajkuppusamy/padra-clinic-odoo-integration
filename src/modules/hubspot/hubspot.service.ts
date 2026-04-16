@@ -52,9 +52,10 @@ export class HubspotService {
         this.queueRepository.create({
           payload: data,
           externalId: String(data.objectId),
-          queueType: QueueType.SYNC_JOB,
+          queueType: QueueType.WEBHOOK,
           sourceType: SourceType.HUBSPOT,
           status: QueueStatus.QUEUED,
+          event: 'deal_update',
         }),
       );
       await this.sqsProducerService.sendMessage(sqsUrl, queueRec?.jobId, data, 'deal_update');
@@ -297,7 +298,7 @@ export class HubspotService {
     return {
       properties: {
         hs_title: `Invoice from Odoo - ${quotationId}`, // Better title with reference
-        hs_currency: 'USD',
+        hs_currency: 'AED', //AUD Or AED
         hs_invoice_status: 'draft', // Set initial status
         hs_invoice_date: new Date().toISOString(), //  Add invoice date
         odoo_quotation_id: quotationId ?? '',
@@ -528,7 +529,7 @@ export class HubspotService {
       hs_title: properties?.hs_title ?? properties?.dealname,
       hs_status: 'DRAFT',
       hs_language: 'en',
-      hs_currency: properties?.hs_currency ?? 'USD',
+      hs_currency: properties?.hs_currency ?? 'AED', // USD Or AED
       hs_expiration_date: properties?.hs_expiration_date ?? expiredDate,
       // hs_total_amount: properties?.amount || 0,
       odoo_quotation_id: properties?.quotationId,
