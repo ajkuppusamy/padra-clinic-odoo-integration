@@ -25,7 +25,7 @@ export class HubspotAuthGuard implements CanActivate {
 
     this.logger.verbose(`Parsed Body: ${JSON.stringify(parsedBody)}`);
 
-    const apiKey = headers['hub_x_api_key'];
+    const apiKey = headers['hub_x_api_key'] ?? headers['hub-x-api-key'];
     const expectedApiKey = this.configService.get<string>('HUB_X_API_KEY');
 
     if (!expectedApiKey) {
