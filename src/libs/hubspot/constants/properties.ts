@@ -17,6 +17,7 @@ export const HUBSPOT_OBJECT_PROPERTIES: Record<string, string[]> = {
     'odoo_last_payment_date', // custom
     'odoo_payment_amount', // custom
     'payment_method', // custom
+    'total_amount_paid',
   ],
 
   line_items: ['name', 'quantity', 'price', 'amount', 'hs_product_id', 'createdate', 'hs_object_id', 'odoo_product_id'],

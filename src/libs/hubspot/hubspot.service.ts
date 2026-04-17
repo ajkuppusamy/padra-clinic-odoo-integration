@@ -64,7 +64,7 @@ export class HubspotService {
   async getHubspotObjectData<T>(objectType: HubspotObjects, objectId: string, properties: string[] = []): Promise<SimplePublicObjectWithAssociations> {
     return await this.queue.add(async () => {
       this.logger.debug(`Fetching Hubspot object ${objectType}, id ${objectId}`);
-      const response = await this.hubspotClient.crm.objects.basicApi.getById(objectType, objectId, properties);
+      const response = await this.hubspotClient.crm.objects.basicApi.getById(objectType, objectId, properties, ['odoo_payment_amount']);
       this.logger.debug(`Successfully fetched ${objectType} with id ${objectId}`);
       return response as SimplePublicObjectWithAssociations;
     });

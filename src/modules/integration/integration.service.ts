@@ -237,6 +237,7 @@ export class IntegrationService {
 
   private async buildPaymentUpdatePayload(deal: SimplePublicObjectWithAssociations, event: PaymentCreatedEvent) {
     const { dealstage, amount, odoo_payment_amount } = deal.properties;
+    const odooTotalPaymentDone = deal?.propertiesWithHistory?.odoo_payment_amount?.map((opa) => Number(opa?.value ?? '0'))?.reduce((p, v) => p + v, 0);
 
     const totalAmount = amount;
     const paidAmount = event?.amount_paid;
@@ -244,6 +245,7 @@ export class IntegrationService {
     const payload: Record<string, any> = {
       odoo_payment_amount: paidAmount,
       odoo_last_payment_date: toHubspotDateValue(event?.payment_date),
+      total_amount_paid: odooTotalPaymentDone,
     };
 
     // if (paidAmount >= totalAmount) {
