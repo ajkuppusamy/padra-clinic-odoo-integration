@@ -245,7 +245,7 @@ export class IntegrationService {
     const payload: Record<string, any> = {
       odoo_payment_amount: paidAmount,
       odoo_last_payment_date: toHubspotDateValue(event?.payment_date),
-      total_amount_paid: odooTotalPaymentDone,
+      total_amount_paid: (odooTotalPaymentDone ?? 0) + paidAmount,
     };
 
     // if (paidAmount >= totalAmount) {

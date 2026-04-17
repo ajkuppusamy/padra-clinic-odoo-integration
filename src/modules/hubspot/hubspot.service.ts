@@ -522,6 +522,8 @@ export class HubspotService {
       hs_language: 'en',
       hs_currency: properties?.hs_currency ?? 'AED', // USD Or AED
       hs_expiration_date: properties?.hs_expiration_date ?? expiredDate,
+      odoo_quotation_id: properties?.quotationId ?? '',
+
       // hs_total_amount: properties?.amount || 0,
       ...(owner && {
         hs_sender_firstname: owner?.firstName,
