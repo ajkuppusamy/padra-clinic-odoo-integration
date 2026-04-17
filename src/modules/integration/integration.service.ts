@@ -353,7 +353,7 @@ export class IntegrationService {
 
     if (event.new_status) {
       const status = this.quoteStatusMapping(event?.new_status);
-      await this.hubspotService.updateQuoteById(jobId, quoteId, { hs_status: status, hs_template_type: 'QUOTE' });
+      await this.hubspotService.updateQuoteById(jobId, quoteId, { hs_status: status, hs_template_type: 'CUSTOMIZABLE_QUOTE_TEMPLATE' });
       //TODO: Require to update the quote template based on client requirement.
     }
 
