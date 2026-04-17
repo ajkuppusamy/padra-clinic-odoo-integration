@@ -353,7 +353,12 @@ export class IntegrationService {
 
     if (event.new_status) {
       const status = this.quoteStatusMapping(event?.new_status);
-      await this.hubspotService.updateQuoteById(jobId, quoteId, { hs_status: status, hs_template_type: 'CUSTOMIZABLE_QUOTE_TEMPLATE' });
+      await this.hubspotService.updateQuoteById(jobId, quoteId, {
+        hs_status: status,
+        hs_template_type: 'CUSTOMIZABLE_QUOTE_TEMPLATE',
+        hs_slug: event.quotation_id,
+        hs_domain: '342994076.hs-sites-na3.com',
+      });
       //TODO: Require to update the quote template based on client requirement.
     }
 
