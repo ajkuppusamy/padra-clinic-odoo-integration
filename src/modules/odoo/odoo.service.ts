@@ -55,7 +55,7 @@ export class OdooService {
           sourceType: SourceType.ODOO,
           status: QueueStatus.QUEUED,
           event: eventName,
-          externalId: body?.invoice_id ?? body?.product_id,
+          externalId: body?.invoice_id ?? body?.product_id ?? body?.quotation_id,
         }),
       );
       await this.sqsProducerService.sendMessage(sqsUrl, record.jobId, payload, eventName);

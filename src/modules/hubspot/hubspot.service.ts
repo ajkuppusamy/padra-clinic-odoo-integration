@@ -249,62 +249,24 @@ export class HubspotService {
     lineItems: SimplePublicObject[],
     contacts: SimplePublicObject[],
   ): SimplePublicObjectInputForCreate {
-    const associations: PublicAssociationsForObject[] = [];
-
-    if (dealId) {
-      associations.push({
-        to: { id: dealId },
-        types: [
-          {
-            associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined,
-            associationTypeId: 175, // Invoice to Deal
-          },
-        ],
-      });
-    }
-
-    if (contacts?.length) {
-      contacts.forEach((contact) => {
-        if (contact?.id) {
-          associations.push({
-            to: { id: contact.id },
-            types: [
-              {
-                associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined,
-                associationTypeId: 177, // Invoice to Contact
-              },
-            ],
-          });
-        }
-      });
-    }
-
-    if (lineItems?.length) {
-      lineItems.forEach((item) => {
-        if (item?.id) {
-          associations.push({
-            to: { id: item.id },
-            types: [
-              {
-                associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined,
-                associationTypeId: 409, // Invoice to Line Item
-              },
-            ],
-          });
-        }
-      });
-    }
-
     return {
       properties: {
-        hs_title: `Invoice from Odoo - ${quotationId}`, // Better title with reference
-        hs_currency: 'AED', //AUD Or AED
-        hs_invoice_status: 'draft', // Set initial status
-        hs_invoice_date: new Date().toISOString(), //  Add invoice date
+        hs_title: `Invoice from Odoo - ${quotationId}`,
+        hs_currency: 'AED', // USD OR AED
+        hs_invoice_status: 'draft',
+        hs_invoice_date: new Date().toISOString(),
         odoo_quotation_id: quotationId ?? '',
         odoo_invoice_id: invoiceId ?? '',
       },
-      associations,
+      associations: [
+        ...(dealId ? [{ to: { id: dealId }, types: [{ associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined, associationTypeId: 175 }] }] : []),
+        ...(contacts
+          ?.filter((c) => c?.id)
+          .map((c) => ({ to: { id: c.id }, types: [{ associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined, associationTypeId: 177 }] })) ?? []),
+        ...(lineItems
+          ?.filter((i) => i?.id)
+          .map((i) => ({ to: { id: i.id }, types: [{ associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined, associationTypeId: 409 }] })) ?? []),
+      ],
     };
   }
 

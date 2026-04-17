@@ -5,7 +5,7 @@ import { SimplePublicObject, SimplePublicObjectWithAssociations } from '@hubspot
 import { CreateQuotationResponse } from '@libs/odoo/interfaces';
 import { PaymentMethod } from '@modules/hubspot/dto/quotation-flow.dto';
 import { HubspotService } from '@modules/hubspot/hubspot.service';
-import { PaymentCreatedEvent, ProductCreateEvent, ProductUpdateEvent } from '@modules/odoo/interfaces/event.interfaces';
+import { InvoiceCreatedEvent, PaymentCreatedEvent, ProductCreateEvent, ProductUpdateEvent } from '@modules/odoo/interfaces/event.interfaces';
 import { OdooService } from '@modules/odoo/odoo.service';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -262,20 +262,21 @@ export class IntegrationService {
   private async handleInvoiceProcess(
     jobId: string,
     deal: SimplePublicObjectWithAssociations,
-    paymentEvent: PaymentCreatedEvent,
+    event: InvoiceCreatedEvent,
     invoiceId: string,
     contacts: SimplePublicObject[],
+    lineItems: SimplePublicObject[],
   ): Promise<void> {
-    const createCustomLineItemRecord = await this.hubspotService.processCreateLinetems(jobId, deal.id, paymentEvent);
-    const { odoo_invoice_id, odoo_quotation_id } = (await this.hubspotService.fetchInvoiceById(jobId, invoiceId)).properties;
+    // const createCustomLineItemRecord = await this.hubspotService.processCreateLinetems(jobId, deal.id, event);
+    // const { odoo_invoice_id, odoo_quotation_id } = (await this.hubspotService.fetchInvoiceById(jobId, invoiceId)).properties;
     const invoice = await this.hubspotService.processInvoice(
       jobId,
-      { invoice_id: odoo_invoice_id ?? '', quotation_id: odoo_quotation_id ?? '' },
+      { invoice_id: event?.invoice_id ?? invoiceId ?? '', quotation_id: event.quotation_id ?? '' },
       deal,
-      [createCustomLineItemRecord],
+      lineItems,
       contacts,
     );
-    this.logger.log(`Invoice Created Amount as : ${paymentEvent.amount_paid} : ${JSON.stringify(invoice)}`);
+    this.logger.log(`Invoice Created  : ${JSON.stringify(invoice)}`);
   }
 
   /**
@@ -305,6 +306,25 @@ export class IntegrationService {
 
     await this.updateDeal(jobId, dealId, payload);
 
+    await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
+
+    this.logger.debug(`[${context}] Completed`, { jobId });
+  }
+
+  public async handlingInvoiceCreated(jobId: string, event: InvoiceCreatedEvent, eventName?: string): Promise<void> {
+    this.logger.debug(`${this.handleInvoiceProcess.name} : ${eventName}`);
+    const context = this.handlingPaymentCreateEvent.name;
+
+    if (!event.quotation_id) return await this.handleSkip(jobId, context, `Quotation id not found Existing Invoice Id : ${event.invoice_id}`);
+    const dealId = await this.hubspotService.fetchAssociatedDealIdByQuoteId(event.quotation_id as string, jobId);
+    if (!dealId) return await this.handleSkip(jobId, context, `Quotation id : ${event.quotation_id} Not Associated deal Or Deal Not Found`);
+    const dealsMetaData = await this.hubspotService.getDealDetails(dealId, jobId);
+
+    const contacts = dealsMetaData?.contacts ?? [];
+    const lineItems = dealsMetaData?.lineItems ?? [];
+    const deal = dealsMetaData.deal;
+
+    await this.handleInvoiceProcess(jobId, deal, event, event.invoice_id, contacts, lineItems);
     await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
 
     this.logger.debug(`[${context}] Completed`, { jobId });

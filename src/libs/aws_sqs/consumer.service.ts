@@ -52,7 +52,8 @@ export class AwsSqsConsumerService {
         case 'payment_created':
           await this.integrationService.handlingPaymentCreateEvent(jobId, data);
           break;
-
+        case 'invoice_created':
+          await this.integrationService.handlingInvoiceCreated(jobId, data);
         default:
           this.logger.warn(`Unhandled eventName: ${eventName}`);
           await this.integrationService.handleSkip(jobId, this.sqsMessageHandler.name, `Unhandled eventName: ${eventName}`);
