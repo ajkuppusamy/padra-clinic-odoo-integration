@@ -69,9 +69,18 @@ export class IntegrationService {
       });
       this.logger.verbose(`Payment Method : ${deal?.properties?.payment_method}`);
 
-      const quoteId = await this.hubspotService.quoteProcess(jobId, dealId, deal.properties, quotation.quotation_id, lineItems);
+      let hsOwner;
+      if (deal?.properties?.hubspot_owner_id) {
+        hsOwner = await this.hubspotService.fetchOwnerById(jobId, deal?.properties?.hubspot_owner_id as string);
+      }
+
+      const quoteId = await this.hubspotService.quoteProcess(jobId, dealId, deal.properties, quotation.quotation_id, lineItems, hsOwner as unknown as Record<string, any>);
 
       if (!quoteId) return await this.handleSkip(jobId, context, 'Quote creation failed');
+
+      const { hs_quote_amount } = (await this.hubspotService.fetchQuote(jobId, quoteId.id))?.properties;
+
+      if (hs_quote_amount) await this.updateDeal(jobId, dealId, { amount: hs_quote_amount });
 
       if (isOffline) {
         await this.handleOfflineFlow(jobId, quoteId.id, quotation);

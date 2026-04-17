@@ -1,9 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { HubspotService as HubspotLibService } from '@libs/hubspot/hubspot.service';
 import { AwsSqsProducerService } from '@libs/aws_sqs/producer.service';
-
 import { ConfigService } from '@nestjs/config';
-import { v4 as uuidv4 } from 'uuid';
 import { QueueRepository, RequestRepository, ResponseRepository } from '@common/repositories';
 import { QueueStatus, QueueType, SourceType, RequestType, RequestStatus, ResponseStatus } from '@common/entities';
 import { HubspotObjects } from '@common/enums';
@@ -11,7 +9,6 @@ import {
   AssociationSpecAssociationCategoryEnum,
   FilterGroup,
   FilterOperatorEnum,
-  PublicAssociationsForObject,
   PublicObjectSearchRequest,
   SimplePublicObject,
   SimplePublicObjectId,
@@ -21,8 +18,7 @@ import {
 import { HUBSPOT_OBJECT_PROPERTIES } from '@libs/hubspot/constants/properties';
 import { PaymentCreatedEvent, ProductCreateEvent, ProductUpdateEvent } from '@modules/odoo/interfaces/event.interfaces';
 import { delay } from '@common/utils';
-import { Quotation } from './dto/quotation-flow.dto';
-import { ConvertQuotationResponse, CreateQuotationResponse } from '@libs/odoo/interfaces';
+import { ConvertQuotationResponse } from '@libs/odoo/interfaces';
 import { HubspotWebhookDto } from './dto';
 
 @Injectable()
@@ -100,6 +96,18 @@ export class HubspotService {
   public async fetchDeal(dealId: string, jobId: string) {
     return this.executeTrackedRequest(jobId, RequestType.FETCH_DEAL, dealId, `/deals/${dealId}`, 'GET', {}, () =>
       this.hubspotLibService.getHubspotObjectData(HubspotObjects.DEALS, dealId, HUBSPOT_OBJECT_PROPERTIES[HubspotObjects.DEALS]),
+    );
+  }
+
+  public async fetchQuote(jobId: string, quoteId: string) {
+    return this.executeTrackedRequest(jobId, RequestType.FETCH_QUOTE, quoteId, `/quotes/${quoteId}`, 'GET', {}, () =>
+      this.hubspotLibService.getHubspotObjectData(HubspotObjects.QUOTES, quoteId, HUBSPOT_OBJECT_PROPERTIES[HubspotObjects.QUOTES]),
+    );
+  }
+
+  public async fetchOwnerById(jobId: string, id: string) {
+    return this.executeTrackedRequest(jobId, RequestType.FETCH_OWNER, id, `/owners/${id}`, 'GET', {}, () =>
+      this.hubspotLibService.getHubspotObjectData(HubspotObjects.OWNERS, id, HUBSPOT_OBJECT_PROPERTIES[HubspotObjects.OWNERS]),
     );
   }
 
@@ -503,8 +511,8 @@ export class HubspotService {
     return deals[0]?.toObjectId;
   }
 
-  private buildQuotePayload(properties: Record<string, any>) {
-    this.logger.debug(`${this.buildQuotePayload.name} Properties=${JSON.stringify(properties)}`);
+  private buildQuotePayload(properties: Record<string, any>, owner?: Record<string, any>) {
+    this.logger.debug(`${this.buildQuotePayload.name} Properties=${JSON.stringify(properties)} and Owner : ${JSON.stringify(owner)}`);
     const date = new Date();
     date.setDate(date.getDate() + 30);
 
@@ -517,13 +525,24 @@ export class HubspotService {
       hs_currency: properties?.hs_currency ?? 'AED', // USD Or AED
       hs_expiration_date: properties?.hs_expiration_date ?? expiredDate,
       // hs_total_amount: properties?.amount || 0,
-      odoo_quotation_id: properties?.quotationId,
+      ...(owner && {
+        hs_sender_firstname: owner?.firstName,
+        hs_sender_lastname: owner?.lastName,
+        hs_sender_email: owner?.email,
+      }),
     };
   }
 
-  public async quoteProcess(jobId: string, dealId: string, properties: Record<string, any>, quotationId?: string, lineItems: SimplePublicObject[] = []) {
+  public async quoteProcess(
+    jobId: string,
+    dealId: string,
+    properties: Record<string, any>,
+    quotationId?: string,
+    lineItems: SimplePublicObject[] = [],
+    owner?: Record<string, any>,
+  ) {
     const payload: SimplePublicObjectInputForCreate = {
-      properties: this.buildQuotePayload({ quotationId, ...properties }),
+      properties: this.buildQuotePayload({ quotationId, ...properties }, owner),
       associations: [
         {
           to: { id: dealId },

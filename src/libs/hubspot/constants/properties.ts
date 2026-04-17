@@ -11,6 +11,7 @@ export const HUBSPOT_OBJECT_PROPERTIES: Record<string, string[]> = {
     'closedate',
     'createdate',
     'hs_object_id',
+    'hubspot_owner_id',
     'quotation_flow', // custom
     'odoo_invoice_id', // custom
     'odoo_last_payment_date', // custom
@@ -31,6 +32,7 @@ export const HUBSPOT_OBJECT_PROPERTIES: Record<string, string[]> = {
     'hs_total_amount',
     'createdate',
     'hs_object_id',
+    'hs_quote_amount',
     'odoo_quotation_id', // custom
     'odoo_invoice_id', // custom
   ],
@@ -67,4 +69,6 @@ export const HUBSPOT_OBJECT_PROPERTIES: Record<string, string[]> = {
     'odoo_invoice_id', // custom
     'odoo_quotation_id', // custom
   ],
+
+  owners: ['hs_given_name', 'hs_family_name', 'hs_email'],
 };
