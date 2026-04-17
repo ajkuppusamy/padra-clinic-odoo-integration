@@ -29,6 +29,7 @@ export enum ObjectType {
 
 export class HubspotWebhookDto {
   @ApiProperty({
+    required: false,
     description: 'HubSpot App ID',
     example: 123456,
     type: Number,
@@ -39,6 +40,7 @@ export class HubspotWebhookDto {
   appId!: number;
 
   @ApiProperty({
+    required: false,
     description: 'Unique event identifier',
     example: 987654323,
     type: Number,
@@ -49,6 +51,7 @@ export class HubspotWebhookDto {
   eventId!: number;
 
   @ApiProperty({
+    required: false,
     description: 'Webhook subscription ID',
     example: 456790,
     type: Number,
@@ -59,6 +62,7 @@ export class HubspotWebhookDto {
   subscriptionId!: number;
 
   @ApiProperty({
+    required: false,
     description: 'HubSpot portal/account ID',
     example: 12345678,
     type: Number,
@@ -67,8 +71,8 @@ export class HubspotWebhookDto {
   @IsNotEmpty()
   @IsOptional()
   portalId!: number;
-
   @ApiProperty({
+    required: false,
     description: 'Event timestamp (milliseconds since epoch)',
     example: 1702541000000,
     type: Number,
@@ -79,6 +83,7 @@ export class HubspotWebhookDto {
   occurredAt!: number;
 
   @ApiProperty({
+    required: false,
     description: 'Type of subscription event',
     enum: SubscriptionType,
     example: SubscriptionType.DEAL_CREATION,
@@ -89,6 +94,7 @@ export class HubspotWebhookDto {
   subscriptionType!: SubscriptionType;
 
   @ApiProperty({
+    required: false,
     description: 'Retry attempt number',
     example: 0,
     type: Number,
@@ -99,6 +105,7 @@ export class HubspotWebhookDto {
   attemptNumber?: number;
 
   @ApiProperty({
+    required: true,
     description: 'ID of the affected object (deal, contact, etc.)',
     example: 5001,
     type: Number,
@@ -109,6 +116,7 @@ export class HubspotWebhookDto {
   objectId!: number;
 
   @ApiProperty({
+    required: false,
     description: 'Source of the change',
     enum: ChangeSource,
     example: ChangeSource.CRM_UI,
@@ -138,6 +146,7 @@ export class HubspotWebhookDto {
   propertyValue?: string;
 
   @ApiProperty({
+    required: false,
     description: 'Type of object affected',
     enum: ObjectType,
     example: ObjectType.DEAL,
@@ -148,6 +157,7 @@ export class HubspotWebhookDto {
   objectType!: ObjectType;
 
   @ApiProperty({
+    required: false,
     description: 'HubSpot object type ID',
     example: '0-3',
     type: String,
@@ -158,6 +168,7 @@ export class HubspotWebhookDto {
   objectTypeId!: string;
 
   @ApiProperty({
+    required: false,
     description: 'Indicates what action occurred',
     enum: ChangeFlag,
     example: ChangeFlag.CREATED,

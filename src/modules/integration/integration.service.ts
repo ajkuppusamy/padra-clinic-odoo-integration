@@ -346,8 +346,8 @@ export class IntegrationService {
   }
 
   public async handlingQuotaionStatus(jobId: string, event: QuotationStatusUpdateEvent, eventName?: string) {
-    this.logger.debug(`${this.handleInvoiceProcess.name} : ${eventName}`);
-    const context = this.handlingPaymentCreateEvent.name;
+    this.logger.debug(`${this.handlingQuotaionStatus.name} : ${eventName}`);
+    const context = this.handlingQuotaionStatus.name;
 
     if (!event.quotation_id) return await this.handleSkip(jobId, context, `Quotation id not found  Status: ${event.new_status}`);
     const quoteId = await this.hubspotService.fetchQuoteByOdooQuoteId(jobId, event.quotation_id as string);

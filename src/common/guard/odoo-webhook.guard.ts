@@ -11,20 +11,16 @@ export class OdooWebhookGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest();
 
-    const signature = request.headers['x-odoo-signature'] as string;
-    const rawBody = request.rawBody;
+    let signature = request.headers['x-odoo-signature'] as string;
+    const rawBody: Buffer = request.rawBody;
     const parsedBody = request.body;
     const secret = this.configService.get<string>('ODOO_WEBHOOK_SECRET');
 
-    // 🔥 Log Headers
-    this.logger.log('Incoming Headers:');
-    this.logger.log(JSON.stringify(request.headers, null, 2));
+    this.logger.log(`Headers: ${JSON.stringify(request.headers)}`);
 
-    this.logger.log('Raw Body:');
-    this.logger.log(rawBody);
+    this.logger.log(`Raw Body: ${rawBody ? rawBody.toString('utf8') : 'N/A'}`);
 
-    this.logger.log('Parsed Body:');
-    this.logger.log(JSON.stringify(parsedBody, null, 2));
+    this.logger.log(`Parsed Body: ${JSON.stringify(parsedBody)}`);
 
     if (!secret) {
       this.logger.error('ODOO_WEBHOOK_SECRET is not configured');
@@ -37,32 +33,29 @@ export class OdooWebhookGuard implements CanActivate {
     }
 
     if (!rawBody) {
-      this.logger.error('Raw body not available for signature validation');
+      this.logger.error('Raw body not available');
       throw new UnauthorizedException('Invalid request');
     }
 
-    let isValid = false;
-
-    try {
-      const expectedSignature = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
-
-      this.logger.debug(`Expected Signature: ${expectedSignature}`);
-      this.logger.debug(`Received Signature: ${signature}`);
-
-      isValid = crypto.timingSafeEqual(Buffer.from(expectedSignature, 'hex'), Buffer.from(signature, 'hex'));
-    } catch (error) {
-      this.logger.error('Signature comparison failed', ['error']?.['stack']);
-      throw new UnauthorizedException('Signature validation failed');
+    if (Array.isArray(signature)) {
+      signature = signature[0];
     }
 
+    signature = signature.trim();
+
+    const expectedSignature = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+
+    this.logger.debug(`Expected Signature: ${expectedSignature}`);
+    this.logger.debug(`Received Signature: ${signature}`);
+
+    const isValid = expectedSignature.length === signature.length && crypto.timingSafeEqual(Buffer.from(expectedSignature, 'utf8'), Buffer.from(signature, 'utf8'));
+
     if (!isValid) {
-      this.logger.warn('Invalid Odoo webhook signature', {
-        signature,
-      });
+      this.logger.warn('Invalid Odoo webhook signature');
       throw new UnauthorizedException('Invalid signature');
     }
 
-    this.logger.log('Odoo webhook signature verified successfully');
+    this.logger.log('Odoo webhook signature verified');
 
     return true;
   }

@@ -1,7 +1,7 @@
 import { Body, Controller, HttpCode, HttpStatus, Post, Param, UseGuards } from '@nestjs/common';
 import { HubspotService } from './hubspot.service';
 import { HubspotAuthGuard } from '@common/guard';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiHeaders } from '@nestjs/swagger';
 import { HubspotWebhookDto } from './dto';
 
 @ApiTags('Hubspot')
@@ -11,7 +11,14 @@ export class HubspotController {
 
   @Post('webhook')
   @HttpCode(HttpStatus.OK)
-  // @UseGuards(HubspotAuthGuard)
+  @UseGuards(HubspotAuthGuard)
+  @ApiHeaders([
+    {
+      name: 'hub_x_api_key',
+      required: true,
+      description: 'API key for authentication',
+    },
+  ])
   @ApiOperation({
     summary: 'Handle HubSpot deal webhook events',
     description: 'Receives webhook events from HubSpot for deal-related events including creation, updates, and deletions',

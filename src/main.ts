@@ -42,7 +42,6 @@ async function bootstrap() {
     .setTitle(`Padra clinic odoo integration API - (${nodeEnv})`)
     .setDescription('Padra clinic odoo integration API Documentation')
     .setVersion('1.0')
-    .addBearerAuth()
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);

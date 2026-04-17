@@ -1,3 +1,4 @@
+import { ERROR_MESSAGES } from '@common/constants';
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
@@ -10,32 +11,39 @@ export class HubspotAuthGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest();
 
-    const token = request.headers['authorization']; // Bearer token
-    const expectedToken = this.configService.get<string>('HUBSPOT_API_KEY') as string;
+    const headers = request.headers;
+    const rawBody = request.rawBody;
+    const parsedBody = request.body;
 
-    if (!expectedToken) {
-      this.logger.error('pat token not configured');
+    this.logger.verbose(`Incoming Headers: ${JSON.stringify(headers)}`);
+
+    if (rawBody) {
+      this.logger.verbose(`Raw Body: ${Buffer.isBuffer(rawBody) ? rawBody.toString('utf8') : rawBody}`);
+    } else {
+      this.logger.warn('Raw body not available');
+    }
+
+    this.logger.verbose(`Parsed Body: ${JSON.stringify(parsedBody)}`);
+
+    const apiKey = headers['hub_x_api_key'];
+    const expectedApiKey = this.configService.get<string>('HUB_X_API_KEY');
+
+    if (!expectedApiKey) {
+      this.logger.error('HUB_X_API_KEY not configured');
       throw new UnauthorizedException('Server config error');
     }
 
-    if (!token) {
-      this.logger.warn('Missing Authorization header');
-      throw new UnauthorizedException('Missing token');
+    if (!apiKey) {
+      this.logger.warn('Missing HUB_X_API_KEY header');
+      throw new UnauthorizedException(ERROR_MESSAGES.UNAUTHORIZED);
     }
 
-    const [type, value] = token.split(' ');
-
-    if (type !== 'Bearer' || !value) {
-      this.logger.warn('Invalid Authorization format');
-      throw new UnauthorizedException('Invalid token format');
+    if (apiKey !== expectedApiKey) {
+      this.logger.warn(`Invalid API key attempt. Received: ${apiKey}`);
+      throw new UnauthorizedException(ERROR_MESSAGES.UNAUTHORIZED);
     }
 
-    if (value !== expectedToken) {
-      this.logger.warn('Unauthorized token attempt');
-      throw new UnauthorizedException('Unauthorized');
-    }
-
-    this.logger.log('HubSpot request authorized');
+    this.logger.log('Webhook request authorized');
 
     return true;
   }
