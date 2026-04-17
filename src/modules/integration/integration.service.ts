@@ -5,7 +5,7 @@ import { SimplePublicObject, SimplePublicObjectWithAssociations } from '@hubspot
 import { CreateQuotationResponse } from '@libs/odoo/interfaces';
 import { PaymentMethod } from '@modules/hubspot/dto/quotation-flow.dto';
 import { HubspotService } from '@modules/hubspot/hubspot.service';
-import { InvoiceCreatedEvent, PaymentCreatedEvent, ProductCreateEvent, ProductUpdateEvent } from '@modules/odoo/interfaces/event.interfaces';
+import { InvoiceCreatedEvent, PaymentCreatedEvent, ProductCreateEvent, ProductUpdateEvent, QuotationStatusUpdateEvent } from '@modules/odoo/interfaces/event.interfaces';
 import { OdooService } from '@modules/odoo/odoo.service';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -32,11 +32,7 @@ export class IntegrationService {
     this.logger.log(`[${context}] Started`, { jobId, dealId });
 
     try {
-      const dealsMetaData = await this.hubspotService.getDealDetails(dealId, jobId);
-
-      const contacts = dealsMetaData?.contacts ?? [];
-      const lineItems = dealsMetaData?.lineItems ?? [];
-      const deal = dealsMetaData.deal;
+      const { deal, contacts, lineItems } = await this.hubspotService.getDealDetails(dealId, jobId);
 
       this.logger.log(`[${context}] Deal data fetched`, {
         jobId,
@@ -329,15 +325,38 @@ export class IntegrationService {
     if (!quoteId) return await this.handleSkip(jobId, context, `Quotation id : ${event.quotation_id} Quote Not Found`);
     const dealId = await this.hubspotService.fetchAssociatedDealIdByQuoteId(quoteId as string, jobId);
     if (!dealId) return await this.handleSkip(jobId, context, `Quotation id : ${event.quotation_id} Not Associated deal Or Deal Not Found`);
-    const dealsMetaData = await this.hubspotService.getDealDetails(dealId, jobId);
+    const { deal, contacts, lineItems } = await this.hubspotService.getDealDetails(dealId, jobId);
 
-    const contacts = dealsMetaData?.contacts ?? [];
-    const lineItems = dealsMetaData?.lineItems ?? [];
-    const deal = dealsMetaData.deal;
-
-    await this.handleInvoiceProcess(jobId, deal, event, event.invoice_id, contacts, lineItems);
+    await this.handleInvoiceProcess(jobId, deal, event, event.invoice_id, contacts ?? [], lineItems ?? []);
     await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
 
+    this.logger.debug(`[${context}] Completed`, { jobId });
+  }
+
+  private quoteStatusMapping(status: string): string {
+    const mapping: Record<string, string> = {
+      confirmed: 'APPROVED',
+      done: 'APPROVED',
+      cancel: 'REJECTED',
+    };
+
+    return mapping[status] || 'DRAFT';
+  }
+
+  public async handlingQuotaionStatus(jobId: string, event: QuotationStatusUpdateEvent, eventName?: string) {
+    this.logger.debug(`${this.handleInvoiceProcess.name} : ${eventName}`);
+    const context = this.handlingPaymentCreateEvent.name;
+
+    if (!event.quotation_id) return await this.handleSkip(jobId, context, `Quotation id not found  Status: ${event.new_status}`);
+    const quoteId = await this.hubspotService.fetchQuoteByOdooQuoteId(jobId, event.quotation_id as string);
+    if (!quoteId) return await this.handleSkip(jobId, context, `Quotation id : ${event.quotation_id} Quote Not Found`);
+
+    if (event.new_status) {
+      const status = this.quoteStatusMapping(event?.new_status);
+      await this.hubspotService.updateQuoteById(jobId, quoteId, { hs_status: status });
+    }
+
+    await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
     this.logger.debug(`[${context}] Completed`, { jobId });
   }
 }
