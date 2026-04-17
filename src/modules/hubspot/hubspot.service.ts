@@ -348,7 +348,30 @@ export class HubspotService {
       limit: 1,
     });
 
-    await delay(5000); // delay setup
+    await delay(1000); // delay setup
+    const searchResult = await this.searchObjectByType(jobId, HubspotObjects.QUOTES, searchRequest, undefined, 1);
+
+    return searchResult?.results[0]?.id ?? null;
+  }
+
+  public async fetchQuoteByOdooQuoteId(jobId: string, odooQuoteId: string): Promise<string | null> {
+    const searchRequest = this.buildHubspotSearch({
+      properties: HUBSPOT_OBJECT_PROPERTIES.quotes ?? [],
+      filterGroups: [
+        {
+          filters: [
+            {
+              propertyName: 'odoo_quotation_id', // custom Properies
+              operator: FilterOperatorEnum.Eq,
+              value: odooQuoteId,
+            },
+          ],
+        },
+      ],
+      limit: 1,
+    });
+
+    await delay(1000);
     const searchResult = await this.searchObjectByType(jobId, HubspotObjects.QUOTES, searchRequest, undefined, 1);
 
     return searchResult?.results[0]?.id ?? null;

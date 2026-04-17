@@ -316,7 +316,9 @@ export class IntegrationService {
     const context = this.handlingPaymentCreateEvent.name;
 
     if (!event.quotation_id) return await this.handleSkip(jobId, context, `Quotation id not found Existing Invoice Id : ${event.invoice_id}`);
-    const dealId = await this.hubspotService.fetchAssociatedDealIdByQuoteId(event.quotation_id as string, jobId);
+    const quoteId = await this.hubspotService.fetchQuoteByOdooQuoteId(jobId, event.quotation_id as string);
+    if (!quoteId) return await this.handleSkip(jobId, context, `Quotation id : ${event.quotation_id} Quote Not Found`);
+    const dealId = await this.hubspotService.fetchAssociatedDealIdByQuoteId(quoteId as string, jobId);
     if (!dealId) return await this.handleSkip(jobId, context, `Quotation id : ${event.quotation_id} Not Associated deal Or Deal Not Found`);
     const dealsMetaData = await this.hubspotService.getDealDetails(dealId, jobId);
 
