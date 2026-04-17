@@ -14,6 +14,7 @@ import {
 import { CollectionResponseMultiAssociatedObjectWithLabelForwardPaging } from '@hubspot/api-client/lib/codegen/crm/associations/v4';
 import { HubspotObjects } from '@common/enums';
 import PQueue from 'p-queue';
+import { PublicOwner } from '@hubspot/api-client/lib/codegen/crm/owners/models/all';
 
 /**
  * Service for interacting with Hubspot CRM API
@@ -66,6 +67,20 @@ export class HubspotService {
       const response = await this.hubspotClient.crm.objects.basicApi.getById(objectType, objectId, properties);
       this.logger.debug(`Successfully fetched ${objectType} with id ${objectId}`);
       return response as SimplePublicObjectWithAssociations;
+    });
+  }
+
+  /**
+   * Retrieves a Hubspot Owners by its ID
+   * @param id - Unique identifier of the owner
+   * @returns {Promise<PublicOwner> }
+   */
+  async getHubspotOwnerById(id: string): Promise<PublicOwner> {
+    return await this.queue.add(async () => {
+      this.logger.debug(`Fetching HubSpot owner ${id}`);
+      const response = await this.hubspotClient.crm.owners.ownersApi.getById(Number(id));
+      this.logger.debug(`Successfully fetched owner with id ${id}`);
+      return response;
     });
   }
 

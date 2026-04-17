@@ -106,9 +106,7 @@ export class HubspotService {
   }
 
   public async fetchOwnerById(jobId: string, id: string) {
-    return this.executeTrackedRequest(jobId, RequestType.FETCH_OWNER, id, `/owners/${id}`, 'GET', {}, () =>
-      this.hubspotLibService.getHubspotObjectData(HubspotObjects.OWNERS, id, HUBSPOT_OBJECT_PROPERTIES[HubspotObjects.OWNERS]),
-    );
+    return this.executeTrackedRequest(jobId, RequestType.FETCH_OWNER, id, `/owners/${id}`, 'GET', {}, () => this.hubspotLibService.getHubspotOwnerById(id));
   }
 
   public async fetchInvoiceById(jobId: string, InvoiceId: string) {
