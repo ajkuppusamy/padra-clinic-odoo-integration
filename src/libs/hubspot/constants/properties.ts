@@ -29,6 +29,7 @@ export const HUBSPOT_OBJECT_PROPERTIES: Record<string, string[]> = {
     'hs_title',
     'hs_expiration_date',
     'hs_status',
+    'hs_template_type',
     'hs_total_amount',
     'createdate',
     'hs_object_id',
