@@ -6,15 +6,15 @@ import { HubspotWebhookDto } from './dto';
 
 @ApiTags('Hubspot')
 @Controller('hubspot')
+@UseGuards(HubspotAuthGuard)
 export class HubspotController {
   constructor(private readonly hubspotService: HubspotService) {}
 
   @Post('webhook')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(HubspotAuthGuard)
   @ApiHeaders([
     {
-      name: 'hub_x_api_key',
+      name: 'hub-x-api-key',
       required: true,
       description: 'API key for authentication',
     },
