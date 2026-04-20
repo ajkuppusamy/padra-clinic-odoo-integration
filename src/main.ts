@@ -30,7 +30,7 @@ async function bootstrap() {
     origin: corsOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'hub-x-api-key'], // TODO: Allow incoming header [hub-x-api-key] hubspot custom header.
+    allowedHeaders: ['Content-Type', 'api-key'], // TODO: Allow incoming header [api-key] hubspot custom header.
   });
 
   app.setGlobalPrefix('api/v1');

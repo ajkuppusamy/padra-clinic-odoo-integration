@@ -14,7 +14,7 @@ export class HubspotController {
   @HttpCode(HttpStatus.OK)
   @ApiHeaders([
     {
-      name: 'hub-x-api-key',
+      name: 'api-key',
       required: true,
       description: 'API key for authentication',
     },
