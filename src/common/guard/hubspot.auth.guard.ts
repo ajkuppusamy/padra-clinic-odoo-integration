@@ -11,6 +11,8 @@ export class HubspotAuthGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest();
 
+    console.log(request);
+
     const headers = request.headers;
     const rawBody = request.rawBody;
     const parsedBody = request.body;
