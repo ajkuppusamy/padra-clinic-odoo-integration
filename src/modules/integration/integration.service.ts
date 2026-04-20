@@ -320,7 +320,7 @@ export class IntegrationService {
 
   public async handlingInvoiceCreated(jobId: string, event: InvoiceCreatedEvent, eventName?: string): Promise<void> {
     this.logger.debug(`${this.handleInvoiceProcess.name} : ${eventName}`);
-    const context = this.handlingPaymentCreateEvent.name;
+    const context = this.handlingInvoiceCreated.name;
 
     if (!event.quotation_id) return await this.handleSkip(jobId, context, `Quotation id not found Existing Invoice Id : ${event.invoice_id}`);
     const quoteId = await this.hubspotService.fetchQuoteByOdooQuoteId(jobId, event.quotation_id as string);
@@ -328,7 +328,8 @@ export class IntegrationService {
     const dealId = await this.hubspotService.fetchAssociatedDealIdByQuoteId(quoteId as string, jobId);
     if (!dealId) return await this.handleSkip(jobId, context, `Quotation id : ${event.quotation_id} Not Associated deal Or Deal Not Found`);
     const { deal, contacts, lineItems } = await this.hubspotService.getDealDetails(dealId, jobId);
-
+    const isAlreadyExistDeal = await this.hubspotService.fetchAssociatedDealIdByInVoiceId(event?.invoice_id, jobId);
+    if (isAlreadyExistDeal) return await this.handleSkip(jobId, context, `: ${event.invoice_id} - invoice already create invoice and associated with deal - ${isAlreadyExistDeal}`);
     await this.handleInvoiceProcess(jobId, deal, event, event.invoice_id, contacts ?? [], lineItems ?? []);
     await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
 
