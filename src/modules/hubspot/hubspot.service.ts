@@ -20,6 +20,7 @@ import { PaymentCreatedEvent, ProductCreateEvent, ProductUpdateEvent } from '@mo
 import { delay } from '@common/utils';
 import { ConvertQuotationResponse } from '@libs/odoo/interfaces';
 import { HubspotWebhookDto } from './dto';
+import { PublicOwner } from '@hubspot/api-client/lib/codegen/crm/owners/models/all';
 
 @Injectable()
 export class HubspotService {
@@ -509,7 +510,13 @@ export class HubspotService {
     return deals[0]?.toObjectId;
   }
 
-  private buildQuotePayload(properties: Record<string, any>, owner?: Record<string, any>) {
+  public async fetchQuoteTemplates(jobId: string) {
+    return this.executeTrackedRequest(jobId, RequestType.FETCH_QUOTE_TEMPLATE, null, `/quote_template`, 'GET', {}, () =>
+      this.hubspotLibService.getHubspotObjectList(HubspotObjects.QUOTE_TEMPLATE, HUBSPOT_OBJECT_PROPERTIES[HubspotObjects.QUOTE_TEMPLATE]),
+    );
+  }
+
+  private buildQuotePayload(properties: Record<string, any>, owner?: PublicOwner) {
     this.logger.debug(`${this.buildQuotePayload.name} Properties=${JSON.stringify(properties)} and Owner : ${JSON.stringify(owner)}`);
     const date = new Date();
     date.setDate(date.getDate() + 30);
@@ -539,7 +546,8 @@ export class HubspotService {
     properties: Record<string, any>,
     quotationId?: string,
     lineItems: SimplePublicObject[] = [],
-    owner?: Record<string, any>,
+    owner?: PublicOwner,
+    quoteTemplateId?: string,
   ) {
     const payload: SimplePublicObjectInputForCreate = {
       properties: this.buildQuotePayload({ quotationId, ...properties }, owner),
@@ -552,6 +560,14 @@ export class HubspotService {
           to: { id },
           types: [{ associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined, associationTypeId: 67 }],
         })),
+        ...(quoteTemplateId
+          ? [
+              {
+                to: { id: quoteTemplateId },
+                types: [{ associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined, associationTypeId: 286 }],
+              },
+            ]
+          : []),
       ],
     };
 

@@ -4,6 +4,7 @@ import { Client as HubspotClient } from '@hubspot/api-client';
 import {
   BatchReadInputSimplePublicObjectId,
   BatchResponseSimplePublicObject,
+  CollectionResponseSimplePublicObjectWithAssociationsForwardPaging,
   CollectionResponseWithTotalSimplePublicObjectForwardPaging,
   PublicObjectSearchRequest,
   SimplePublicObject,
@@ -68,6 +69,69 @@ export class HubspotService {
       this.logger.debug(`Successfully fetched ${objectType} with id ${objectId}`);
       return response as SimplePublicObjectWithAssociations;
     });
+  }
+
+  /**
+   * Fetches a single page of HubSpot objects for a given object type.
+   *
+   * @param objectType - The type of HubSpot object to fetch
+   * @param properties - Array of property names to include in the response
+   * @param limit - Maximum number of items to return per page (max: 100)
+   * @param after - Pagination cursor for fetching the next page
+   * @returns Promise containing paginated response with results and next page cursor
+   */
+  async getHubspotObjectList(
+    objectType: HubspotObjects,
+    properties: string[] = [],
+    limit?: number,
+    after?: string,
+  ): Promise<CollectionResponseSimplePublicObjectWithAssociationsForwardPaging> {
+    return await this.queue.add(async () => {
+      this.logger.debug(`Fetching Hubspot ${objectType} objects${limit ? ` (limit: ${limit})` : ''}`);
+
+      const response = await this.hubspotClient.crm.objects.basicApi.getPage(objectType, limit, after, properties);
+
+      this.logger.debug(`Fetched ${response.results?.length || 0} ${objectType} objects`);
+
+      return response;
+    });
+  }
+
+  /**
+   * Fetches all HubSpot objects across multiple pages, with optional total limit.
+   *
+   * @param objectType - The type of HubSpot object to fetch
+   * @param properties - Array of property names to include in the response
+   * @param limit - Maximum total number of objects to fetch (optional, fetches all if not specified)
+   * @param pageSize - Number of items to fetch per API call (default: 100, max: 100)
+   * @returns Promise containing array of all fetched objects
+   */
+  async getAllHubspotObjects(objectType: HubspotObjects, properties: string[] = [], limit?: number, pageSize: number = 100): Promise<SimplePublicObjectWithAssociations[]> {
+    let allResults: SimplePublicObjectWithAssociations[] = [];
+    let after: string | undefined = undefined;
+    let hasMore = true;
+    let remainingToFetch = limit || Infinity;
+
+    while (hasMore && remainingToFetch > 0) {
+      const fetchSize = Math.min(pageSize, remainingToFetch);
+
+      const response = await this.getHubspotObjectList(objectType, properties, fetchSize, after);
+
+      if (response.results && response.results.length > 0) {
+        allResults = [...allResults, ...response.results];
+        remainingToFetch -= response.results.length;
+      }
+
+      if (response.paging?.next?.after && remainingToFetch > 0) {
+        after = response.paging.next.after;
+        hasMore = true;
+      } else {
+        hasMore = false;
+      }
+    }
+
+    this.logger.debug(`Fetched ${allResults.length} ${objectType} objects (limit: ${limit || 'unlimited'})`);
+    return allResults;
   }
 
   /**

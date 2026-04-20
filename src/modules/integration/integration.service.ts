@@ -2,6 +2,7 @@ import { QueueStatus } from '@common/entities';
 import { QueueRepository } from '@common/repositories';
 import { toHubspotDateValue } from '@common/utils';
 import { SimplePublicObject, SimplePublicObjectWithAssociations } from '@hubspot/api-client/lib/codegen/crm/companies';
+import { PublicOwner } from '@hubspot/api-client/lib/codegen/crm/owners/models/all';
 import { CreateQuotationResponse } from '@libs/odoo/interfaces';
 import { PaymentMethod } from '@modules/hubspot/dto/quotation-flow.dto';
 import { HubspotService } from '@modules/hubspot/hubspot.service';
@@ -70,7 +71,11 @@ export class IntegrationService {
         hsOwner = await this.hubspotService.fetchOwnerById(jobId, deal?.properties?.hubspot_owner_id as string);
       }
 
-      const quoteId = await this.hubspotService.quoteProcess(jobId, dealId, deal.properties, quotation.quotation_id, lineItems, hsOwner as unknown as Record<string, any>);
+      const quoteTemplates = (await this.hubspotService.fetchQuoteTemplates(jobId))?.results?.find(
+        (v) => v.properties?.hs_type == 'customizable_quote_template' && v.properties?.hs_name == 'Default Original',
+      );
+
+      const quoteId = await this.hubspotService.quoteProcess(jobId, dealId, deal.properties, quotation.quotation_id, lineItems, hsOwner as PublicOwner, quoteTemplates?.id);
 
       if (!quoteId) return await this.handleSkip(jobId, context, 'Quote creation failed');
 

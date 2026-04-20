@@ -13,6 +13,7 @@ export enum HubspotObjects {
   PAYMENTS = 'payments',
   SUBSCRIPTIONS = 'subscriptions',
   OWNERS = 'owners',
+  QUOTE_TEMPLATE = 'quote_template',
 
   CAMPAIGNS = 'campaigns',
   EMAILS = 'emails',

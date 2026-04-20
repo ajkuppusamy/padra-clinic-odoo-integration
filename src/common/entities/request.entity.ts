@@ -21,6 +21,7 @@ export enum RequestType {
   CREATE_LINEITEM = 'create_lineitem',
   FETCH_INVOICE = 'fetch_invoice',
   FETCH_OWNER = 'fetch_owner',
+  FETCH_QUOTE_TEMPLATE = 'fetch_quote_template',
 }
 
 export enum RequestStatus {

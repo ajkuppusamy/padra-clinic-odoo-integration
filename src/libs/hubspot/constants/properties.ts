@@ -73,4 +73,6 @@ export const HUBSPOT_OBJECT_PROPERTIES: Record<string, string[]> = {
   ],
 
   owners: ['hs_given_name', 'hs_family_name', 'hs_email'],
+
+  quote_template: ['hs_name, hs_type'],
 };
