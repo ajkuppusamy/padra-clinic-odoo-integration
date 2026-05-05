@@ -5,6 +5,7 @@ export enum QueueType {
   WEBHOOK = 'webhook',
   SYNC_JOB = 'sync_job',
   RETRY_JOB = 'retry_job',
+  LIST = 'list_data',
 }
 
 export enum QueueStatus {

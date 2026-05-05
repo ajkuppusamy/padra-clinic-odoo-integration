@@ -9,4 +9,5 @@ export interface SearchReadParams {
   domain: Array<[string, string, string | number | boolean | null]>;
   fields: string[];
   limit: number;
+  offset?: number;
 }

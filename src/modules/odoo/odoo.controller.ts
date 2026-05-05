@@ -1,10 +1,10 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, Headers, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, Headers, UseGuards, Get, Query, DefaultValuePipe, ParseIntPipe } from '@nestjs/common';
 import { OdooService } from './odoo.service';
-import { ApiTags, ApiOperation, ApiHeaders, ApiResponse, ApiBody } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiHeaders, ApiResponse, ApiBody, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { ODOO_WEBHOOK_EVENT_NAMES, isValidOdooEventName } from './interfaces/odoo-webhook';
 import { BadRequestException } from '@nestjs/common';
 import { OdooWebhookDto } from './dto/odoo-webhook.dto';
-import { OdooWebhookGuard } from '@common/guard';
+import { BearerAuthGuard, OdooWebhookGuard } from '@common/guard';
 
 @ApiTags('Odoo Webhooks')
 @Controller('odoo')
@@ -38,5 +38,30 @@ export class OdooController {
     if (!eventHeader || !isValidOdooEventName(eventHeader)) throw new BadRequestException('Missing x-odoo-event or Invalid headeer');
 
     return await this.odooService.handlingWebhook(eventHeader, body);
+  }
+
+  @Get('products')
+  //@UseGuards(BearerAuthGuard)
+  @ApiOperation({ summary: 'Get products by company with pagination' })
+  @ApiQuery({ name: 'companyId', type: Number, required: true, example: 1 })
+  @ApiQuery({ name: 'page', type: Number, required: false, example: 1 })
+  @ApiQuery({ name: 'limit', type: Number, required: false, example: 100 })
+  @ApiHeaders([
+    {
+      name: 'Authorization',
+      required: true,
+      description: 'Bearer access token. Format: Bearer <your_token>',
+    },
+  ])
+  @ApiResponse({
+    status: 200,
+    description: 'List of products',
+  })
+  async listProducts(
+    @Query('companyId', ParseIntPipe) companyId: number,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(100), ParseIntPipe) limit: number,
+  ) {
+    return this.odooService.listProductbyCompanyId(companyId, page, limit);
   }
 }

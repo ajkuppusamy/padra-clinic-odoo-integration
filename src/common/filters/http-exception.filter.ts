@@ -12,22 +12,34 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const status = exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
 
     let safeMessage: any = ERROR_MESSAGES.UNKNOWN_ERROR;
-    console.log(exception?.message);
 
     if (exception instanceof HttpException) {
-      const message = exception.message;
-      const knownMessages = Object.values(ERROR_MESSAGES);
-      safeMessage = knownMessages.includes(message as ERROR_MESSAGES) ? message : ERROR_MESSAGES.UNKNOWN_ERROR;
+      const res = exception.getResponse();
+      let message: any;
 
-      if (Array.isArray(exception?.['response']?.message)) {
+      if (typeof res === 'string') {
+        message = res;
+      } else if (typeof res === 'object') {
+        message = (res as any).message;
+      }
+
+      const knownMessages = Object.values(ERROR_MESSAGES);
+
+      if (Array.isArray(message)) {
         const safeMessages: string[] = [];
-        exception?.['response']?.message?.forEach((message: string) => {
-          if (message?.includes(ERROR_MESSAGES?.VALID_TEXT) || message?.includes(ERROR_MESSAGES?.IS_REQUIRED)) {
-            safeMessages.push(message);
+
+        message.forEach((msg: string) => {
+          if (msg?.includes(ERROR_MESSAGES?.VALID_TEXT) || msg?.includes(ERROR_MESSAGES?.IS_REQUIRED)) {
+            safeMessages.push(msg);
           }
         });
-        safeMessage = safeMessages?.join(', ') || safeMessage;
+
+        safeMessage = safeMessages.length > 0 ? safeMessages.join(', ') : ERROR_MESSAGES.UNKNOWN_ERROR;
+      } else {
+        safeMessage = knownMessages.includes(message) ? message : message || ERROR_MESSAGES.UNKNOWN_ERROR;
       }
+    } else {
+      safeMessage = exception?.message || ERROR_MESSAGES.UNKNOWN_ERROR;
     }
 
     const errorResponse = {

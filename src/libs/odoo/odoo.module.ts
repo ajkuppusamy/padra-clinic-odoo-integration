@@ -1,7 +1,8 @@
-import { Module, DynamicModule, Provider, Global } from '@nestjs/common';
+import { Module, Global } from '@nestjs/common';
 import { OdooService } from './odoo.service';
 import { OdooConfigService } from './config/odoo.config';
 import { HttpModule } from '@nestjs/axios';
+import * as https from 'https';
 
 @Global()
 @Module({
@@ -10,6 +11,9 @@ import { HttpModule } from '@nestjs/axios';
       useFactory: () => ({
         timeout: 30000,
         maxRedirects: 5,
+        httpsAgent: new https.Agent({
+          rejectUnauthorized: false,
+        }),
       }),
     }),
   ],

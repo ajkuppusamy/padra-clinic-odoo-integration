@@ -103,7 +103,68 @@ export class OdooService {
   }
 
   async searchContact(jobId: string, properties: SearchReadParams, property: string): Promise<ContactSearchResponse[]> {
-    return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/search_read', 'POST', properties, () => this.odooLibService.search(properties));
+    return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/search_read', 'POST', properties, () => this.odooLibService.search(properties, '/search_read'));
+  }
+
+  public async listProductbyCompanyId(companyId: number, page: number = 1, limit: number = 100) {
+    const offset = (page - 1) * limit;
+    let jobId;
+
+    try {
+      const payload: SearchReadParams = {
+        domain: [['company_id', '=', companyId]],
+        fields: ['id', 'display_name', 'name', 'list_price', 'company_id'],
+        limit,
+        offset,
+      };
+
+      const queue = await this.queueRepository
+        .create({
+          sourceType: SourceType.HUBSPOT,
+          queueType: QueueType.LIST,
+          payload,
+          status: QueueStatus.QUEUED,
+          event: 'UI_EXTENSION',
+        })
+        .save();
+
+      jobId = queue.jobId;
+
+      const products = await this.searchProdctByCompanyId(jobId, payload, 'company_id');
+
+      await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED, undefined, 'Products fetched successfully');
+
+      return {
+        ...(products?.length > 0 && { page, limit, offset }),
+        data: products || [],
+      };
+    } catch (error) {
+      this.logger.error('Error in listProductbyCompanyId', {
+        jobId,
+        companyId,
+        page,
+        limit,
+        error: error?.['message'] || error,
+      });
+
+      if (jobId) await this.queueRepository.updateStatus(jobId, QueueStatus.FAILED, error?.['message'] || JSON.stringify(error), 'Failed to fetch products').catch(() => null); // 👈 ignore update failure
+
+      return {
+        data: [],
+      };
+    }
+  }
+
+  async searchProdctByCompanyId(jobId: string, properties: SearchReadParams, property: string) {
+    return this.executeTrackedRequest(
+      jobId,
+      RequestType.SEARCH,
+      property,
+      'product.document/search_read',
+      'POST',
+      properties,
+      () => this.odooLibService.search(properties, '/product.product/search_read'), // 'product.product/search_read // product.document/search_read
+    );
   }
 
   async contactProcess(properties: Record<string, any>, jobId: string): Promise<string> {

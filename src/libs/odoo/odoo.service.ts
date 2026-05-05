@@ -476,7 +476,7 @@ export class OdooService {
    * @returns {Promise<ContactSearchResponse>} Promise resolving to search results
    * @throws {HttpException} When API error occurs
    */
-  async search(search: SearchReadParams): Promise<ContactSearchResponse[]> {
-    return await this.request<ContactSearchResponse[]>('POST', '/search_read', search, this.getSearchHeaders());
+  async search(search: SearchReadParams, path: string): Promise<ContactSearchResponse[] | []> {
+    return await this.request<ContactSearchResponse[]>('POST', path, search, this.getSearchHeaders());
   }
 }
