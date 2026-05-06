@@ -22,6 +22,7 @@ import { ConvertQuotationResponse } from '@libs/odoo/interfaces';
 import { HubspotWebhookDto, ProductDto } from './dto';
 import { PublicOwner } from '@hubspot/api-client/lib/codegen/crm/owners/models/all';
 import { Product } from '@modules/odoo/interfaces';
+import { CreateQuoteDto } from './dto/quotation-flow.dto';
 
 @Injectable()
 export class HubspotService {
@@ -592,7 +593,7 @@ export class HubspotService {
     const properties: SimplePublicObjectInputForCreate = {
       properties: {
         name: `${product.name} - ${product.id}`,
-        quantity: '1',
+        quantity: String(product.quantity) ?? 1,
         price: product.price?.toString() || '0',
         odoo_product_id: product.id.toString(),
       },
@@ -611,6 +612,90 @@ export class HubspotService {
     this.logger.verbose(`Line Items : ${JSON.stringify(properties)}`);
 
     return this.hubspotLibService.createHubspotObject(HubspotObjects.LINE_ITEMS, properties);
+  }
+  private buildAssociation(toId: string, typeId: number) {
+    return {
+      to: { id: toId },
+      types: [
+        {
+          associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined,
+          associationTypeId: typeId,
+        },
+      ],
+    };
+  }
+
+  private buildQuotePayloadObject(
+    dealId: string,
+    lineItems: SimplePublicObject[],
+    properties: Record<string, any>,
+    owner?: PublicOwner,
+    quotationId?: string,
+    quoteTemplateId?: string,
+  ): SimplePublicObjectInputForCreate {
+    return {
+      properties: this.buildQuotePayload({ quotationId, ...properties }, owner),
+
+      associations: [
+        this.buildAssociation(dealId, 64),
+
+        ...lineItems.map(({ id }) => this.buildAssociation(id, 67)),
+
+        ...(quoteTemplateId ? [this.buildAssociation(quoteTemplateId, 286)] : []),
+      ],
+    };
+  }
+
+  public async createQuoteDirect(dealObject: CreateQuoteDto, dealId: string) {
+    try {
+      const deal = await this.hubspotLibService.getHubspotObjectData(HubspotObjects.DEALS, dealId, HUBSPOT_OBJECT_PROPERTIES[HubspotObjects.DEALS]).catch(() => null);
+
+      if (!deal) {
+        return {
+          success: false,
+          message: 'Deal not found',
+        };
+      }
+
+      const owner = await this.hubspotLibService.getHubspotOwnerById(dealObject.dealOwnerId).catch(() => null);
+
+      const quoteTemplates = await this.hubspotLibService
+        .getHubspotObjectList(HubspotObjects.QUOTE_TEMPLATE, HUBSPOT_OBJECT_PROPERTIES[HubspotObjects.QUOTE_TEMPLATE])
+        .catch(() => ({ results: [] }));
+
+      const template = quoteTemplates.results?.find((v) => v.properties?.hs_type === 'customizable_quote_template' && v.properties?.hs_name === 'Default Original');
+
+      const lineItemsResponse = await this.hubspotLibService
+        .getBatchObject(HubspotObjects.LINE_ITEMS, {
+          inputs: dealObject.lineItemIds.map((id) => ({
+            id: String(id),
+          })),
+          properties: HUBSPOT_OBJECT_PROPERTIES[HubspotObjects.LINE_ITEMS] ?? [],
+          propertiesWithHistory: [],
+        })
+        .catch(() => null);
+
+      const lineItems = lineItemsResponse?.results ?? [];
+
+      if (!lineItems.length) {
+        return {
+          success: false,
+          message: 'No line items found',
+        };
+      }
+
+      const payload = await this.buildQuotePayloadObject(deal.id, lineItems, deal.properties, owner as PublicOwner, undefined, template?.id);
+
+      const response = await this.hubspotLibService.createHubspotObject(HubspotObjects.QUOTES, payload);
+
+      return response;
+    } catch (error: any) {
+      return {
+        success: false,
+        statusCode: 500,
+        message: error?.message || 'Quote creation failed',
+      };
+    }
   }
 
   private async executeTrackedRequest<T>(

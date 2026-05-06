@@ -1,4 +1,4 @@
-import { IsNumber, IsEnum, IsOptional } from 'class-validator';
+import { IsNumber, IsEnum, IsOptional, IsString, IsArray } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -41,4 +41,16 @@ export class Quotation {
   @IsOptional()
   @IsNumber()
   quoteId?: number;
+}
+
+export class CreateQuoteDto {
+  @ApiProperty({ example: '67890' })
+  @IsString()
+  dealOwnerId!: string;
+
+  @ApiProperty({ example: [101, 102, 103] })
+  @IsArray()
+  @Type(() => Number)
+  @IsNumber({}, { each: true })
+  lineItemIds!: number[];
 }

@@ -37,4 +37,9 @@ export class ProductDto {
   @Type(() => Number)
   @IsNumber()
   price!: number;
+
+  @ApiProperty()
+  @Type(() => Number)
+  @IsNumber()
+  quantity!: number;
 }
