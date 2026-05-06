@@ -663,7 +663,9 @@ export class HubspotService {
         .getHubspotObjectList(HubspotObjects.QUOTE_TEMPLATE, HUBSPOT_OBJECT_PROPERTIES[HubspotObjects.QUOTE_TEMPLATE])
         .catch(() => ({ results: [] }));
 
-      const template = quoteTemplates.results?.find((v) => v.properties?.hs_type === 'customizable_quote_template' && v.properties?.hs_name === 'Default Original');
+      const template = quoteTemplates.results?.find(
+        (v) => v?.['properties']?.['hs_type'] === 'customizable_quote_template' && v?.['properties']?.['hs_name'] === 'Default Original',
+      );
 
       const lineItemsResponse = await this.hubspotLibService
         .getBatchObject(HubspotObjects.LINE_ITEMS, {
