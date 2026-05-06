@@ -3,7 +3,7 @@ import { QueueRepository } from '@common/repositories';
 import { toHubspotDateValue } from '@common/utils';
 import { SimplePublicObject, SimplePublicObjectWithAssociations } from '@hubspot/api-client/lib/codegen/crm/companies';
 import { PublicOwner } from '@hubspot/api-client/lib/codegen/crm/owners/models/all';
-import { CreateQuotationResponse } from '@libs/odoo/interfaces';
+import { CreateQuotationResponse, SearchReadParams, ValsList } from '@libs/odoo/interfaces';
 import { PaymentMethod } from '@modules/hubspot/dto/quotation-flow.dto';
 import { HubspotService } from '@modules/hubspot/hubspot.service';
 import { InvoiceCreatedEvent, PaymentCreatedEvent, ProductCreateEvent, ProductUpdateEvent, QuotationStatusUpdateEvent } from '@modules/odoo/interfaces/event.interfaces';
@@ -139,7 +139,7 @@ export class IntegrationService {
    * OFFLINE FLOW
    * =========================
    */
-  private async handleOfflineFlow(jobId: string, quoteId: string, quotation: CreateQuotationResponse) {
+  private async handleOfflineFlow(jobId: string, quoteId: string, quotation: Partial<CreateQuotationResponse>) {
     this.logger.log(`[handleOfflineFlow] Updating HubSpot quote`, {
       jobId,
       quoteId,
@@ -158,7 +158,7 @@ export class IntegrationService {
    */
   private async handleOnlineFlow(
     jobId: string,
-    quotation: CreateQuotationResponse,
+    quotation: Partial<CreateQuotationResponse>,
     deal: SimplePublicObjectWithAssociations,
     lineItems: SimplePublicObject[],
     contact: SimplePublicObject[],
@@ -168,7 +168,7 @@ export class IntegrationService {
       quotationId: quotation?.quotation_id,
     });
 
-    const invoice = await this.odooService.ProcessQuotationtoInvoice(jobId, quotation.quotation_id);
+    const invoice = await this.odooService.ProcessQuotationtoInvoice(jobId, quotation?.quotation_id as string);
 
     /** Create hubspot invoice and associate with deal */
     const createInvoice = await this.hubspotService.processInvoice(jobId, invoice, deal, lineItems, contact);
@@ -372,5 +372,109 @@ export class IntegrationService {
 
     await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
     this.logger.debug(`[${context}] Completed`, { jobId });
+  }
+
+  public async odooSearchUpsertContactProcess(jobId: string, contact: SimplePublicObject, companyId: string): Promise<number | null> {
+    const searchPayload = (await this.odooService.buildOdooObjectSearchPayload(contact, companyId)) as ValsList | SearchReadParams;
+    const contactRead = await this.odooService.searchContactRead(jobId, searchPayload as SearchReadParams, 'email');
+    if (contactRead.length) {
+      await this.hubspotService.updateContactById(jobId, contact.id, { odoo_contact_id: contactRead[0]?.id });
+      return contactRead[0]?.id;
+    }
+    const writeContactPayload = (await this.odooService.buildOdooObjectSearchPayload(contact, companyId)) as ValsList;
+    const createContact = await this.odooService.searchContactWrite(jobId, writeContactPayload, 'email');
+    await this.hubspotService.updateContactById(jobId, contact.id, { odoo_contact_id: createContact[0] });
+    return createContact[0];
+  }
+
+  public async dealPipeLineByGetCompanyId(jobId: string, deal: SimplePublicObject): Promise<number | null> {
+    const searchPayload = (await this.odooService.buildOdooObjectSearchPayload(deal, '')) as ValsList | SearchReadParams;
+    const searchCompany = await this.odooService.searchCompanyRead(jobId, searchPayload as SearchReadParams, 'name');
+    return searchCompany[0]?.id;
+  }
+
+  async odooSalesOrderExecution(dealId: string, jobId: string) {
+    const context = 'odooSalesOrderExecution';
+
+    this.logger.log(`[${context}] Started`, { jobId, dealId });
+
+    try {
+      const { deal, contacts, lineItems } = await this.hubspotService.getDealDetails(dealId, jobId);
+
+      this.logger.log(`[${context}] Deal data fetched`, {
+        jobId,
+        contactsCount: contacts.length,
+        lineItemsCount: lineItems.length,
+      });
+      if (!contacts.length) return await this.handleSkip(jobId, context, 'Deal Associated Contact Not Found');
+
+      const stageId = this.configService.get<string>('HUBSPOT_QUOTATION_STAGE_ID');
+      this.logger.debug(`Deal Stage Id : ${stageId}`);
+
+      if (deal.properties.dealstage !== stageId) return await this.handleSkip(jobId, context, 'Deal Stage not Quotation Process');
+
+      const companyId = await this.dealPipeLineByGetCompanyId(jobId, deal);
+
+      if (!companyId) return await this.handleSkip(jobId, context, 'Odoo Product Not Found based on deal pipeline');
+
+      const primaryContact: SimplePublicObject = contacts[0];
+
+      const odooContactId = await this.odooSearchUpsertContactProcess(jobId, primaryContact[0], String(companyId));
+
+      if (!odooContactId) return await this.handleSkip(jobId, context, 'No associated contact found');
+
+      const offlinePaymentMethod = [PaymentMethod.CASH, PaymentMethod.CREDIT, PaymentMethod.DEBIT];
+
+      const isOffline = offlinePaymentMethod.includes(deal?.properties?.payment_method as unknown as PaymentMethod);
+
+      const lineitemProperties = lineItems.map((i) => i?.properties);
+      this.logger.debug(`total Line Items: ${lineItems.length}`);
+      if (!lineItems.length) return await this.handleSkip(jobId, context, 'No Associated LinItems');
+
+      const quote = (await this.odooService.buildOdooObjectSearchPayload(deal, String(companyId), true, 'deals', odooContactId, lineItems)) as ValsList;
+
+      const quotation = await this.odooService.searchSaleOrderCreation(jobId, quote, 'odoo_quotation_id');
+
+      this.logger.log(`[${context}] Quotation created`, {
+        jobId,
+        quotationId: quotation?.[0],
+      });
+      this.logger.verbose(`Payment Method : ${deal?.properties?.payment_method}`);
+
+      let hsOwner;
+      if (deal?.properties?.hubspot_owner_id) {
+        hsOwner = await this.hubspotService.fetchOwnerById(jobId, deal?.properties?.hubspot_owner_id as string);
+      }
+
+      const quoteTemplates = (await this.hubspotService.fetchQuoteTemplates(jobId))?.results?.find(
+        (v) => v.properties?.hs_type == 'customizable_quote_template' && v.properties?.hs_name == 'Default Original',
+      );
+
+      const quoteId = await this.hubspotService.quoteProcess(jobId, dealId, deal.properties, String(quotation?.[0]), lineItems, hsOwner as PublicOwner, quoteTemplates?.id);
+
+      if (!quoteId) return await this.handleSkip(jobId, context, 'Quote creation failed');
+
+      const { hs_quote_amount } = (await this.hubspotService.fetchQuote(jobId, quoteId.id))?.properties;
+
+      if (hs_quote_amount) await this.updateDeal(jobId, dealId, { amount: hs_quote_amount });
+
+      if (isOffline) {
+        await this.handleOfflineFlow(jobId, quoteId.id, { quotation_id: String(quotation?.[0]) });
+      } else {
+        await this.handleOnlineFlow(jobId, { quotation_id: String(quotation?.[0]) }, deal, lineItems, contacts);
+      }
+
+      await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
+
+      this.logger.log(`[${context}] Completed successfully`, { jobId });
+
+      return { success: true };
+    } catch (error) {
+      this.logger.error(`[${context}] Failed`, {
+        jobId,
+        error: error?.['message'],
+        stack: error?.['stack'],
+      });
+    }
   }
 }

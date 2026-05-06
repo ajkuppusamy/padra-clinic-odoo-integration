@@ -6,6 +6,7 @@ import PQueue from 'p-queue';
 import { OdooConfigService } from './config/odoo.config';
 import {
   CashPaymentRequest,
+  CompanySearchResponse,
   ContactSearchResponse,
   ConvertQuotationResponse,
   CreateAppointmentRequest,
@@ -40,6 +41,7 @@ import {
   UpdateProductRequest,
   UpdateProductResponse,
   UpdateQuotationRequest,
+  ValsList,
 } from './interfaces';
 import { Product } from '@modules/odoo/interfaces';
 import { ERROR_MESSAGES } from '@common/constants';
@@ -489,7 +491,7 @@ export class OdooService {
    * @returns {Promise<ContactSearchResponse>} Promise resolving to search results
    * @throws {HttpException} When API error occurs
    */
-  async search(search: Partial<SearchReadParams>, path: string): Promise<ContactSearchResponse[] | Product[]> {
-    return await this.request<ContactSearchResponse[] | Product[]>('POST', path, search, this.getSearchHeaders());
+  async search(search: Partial<SearchReadParams | ValsList>, path: string): Promise<ContactSearchResponse[] | Product[] | number[] | CompanySearchResponse[] | boolean> {
+    return await this.request<ContactSearchResponse[] | Product[] | number[] | CompanySearchResponse[] | boolean>('POST', path, search, this.getSearchHeaders());
   }
 }

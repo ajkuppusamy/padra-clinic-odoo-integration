@@ -9,14 +9,21 @@ import {
   CreateQuotationRequest,
   ISO8601Date,
   SearchReadParams,
+  ValsList,
   UpdateContactRequest,
   UpdateProductRequest,
+  CompanySearchResponse,
+  SearchSalesOrderWrite,
+  Contact,
+  SalesOrder,
+  OrderLine,
 } from '@libs/odoo/interfaces';
 import { RequestType, RequestStatus, ResponseStatus, SourceType, QueueStatus, QueueType, Response } from '@common/entities';
 import { AwsSqsProducerService } from '@libs/aws_sqs/producer.service';
 import { ConfigService } from '@nestjs/config';
 import { HubspotService } from '@modules/hubspot/hubspot.service';
 import { OdooWebhookDto } from './dto/odoo-webhook.dto';
+import { SimplePublicObject } from '@hubspot/api-client/lib/codegen/crm/companies';
 
 @Injectable()
 export class OdooService {
@@ -143,7 +150,7 @@ export class OdooService {
 
     const searchCompany = await this.searchCompanyByName(jobId, companyPayload, 'display_name');
 
-    const companyId = searchCompany?.[0]?.id;
+    const companyId = searchCompany?.[0]?.['id'];
 
     if (!companyId) {
       await this.queueRepository.updateStatus(jobId, QueueStatus.SKIPPED, undefined, 'Company not found');
@@ -340,6 +347,111 @@ export class OdooService {
     return await this.executeTrackedRequest(jobId, RequestType.UPDATE_PRODUCT, productId, `/products/${productId}`, 'PUT', properties, () =>
       this.odooLibService.updateProduct(productId, properties),
     );
+  }
+
+  async buildOdooObjectSearchPayload(
+    properties: SimplePublicObject,
+    companyId?: number | string,
+    isWrite = false,
+    object?: 'contacts' | 'companies' | 'deals',
+    contactId?: number | string,
+    lineItems?: SimplePublicObject[],
+  ): Promise<ValsList | SearchReadParams> {
+    const email = properties?.properties?.email ?? null;
+    const pipeline = properties?.properties?.pipeline ?? null;
+
+    if (!isWrite) {
+      const domainCondition: [string, string, any] = email ? ['email', 'ilike', email] : ['name', 'ilike', pipeline];
+
+      return {
+        domain: [domainCondition],
+        fields: ['display_name', 'id', 'name', 'email'],
+        limit: 1,
+      };
+    }
+
+    if (object === 'contacts') {
+      const contact: Contact = {
+        email: email ?? '',
+        company_id: String(companyId ?? ''),
+        autopost_bills: 'never',
+        street: properties?.properties?.street ?? undefined,
+        city: properties?.properties?.city ?? undefined,
+        zip: properties?.properties?.zip ?? undefined,
+      };
+
+      return {
+        vals_list: [contact],
+      };
+    }
+
+    if (object === 'deals') {
+      const orderLines: [number, number, OrderLine][] = (lineItems ?? [])
+        .map((item) => {
+          const productId = Number(item?.properties?.odoo_product_id);
+
+          if (!productId) return null;
+
+          return [
+            0,
+            0,
+            {
+              product_id: productId,
+              name: item?.properties?.name ?? 'Item',
+              price_unit: Number(item?.properties?.price ?? 0),
+              product_uom_qty: Number(item?.properties?.quantity ?? 1),
+            },
+          ] as [number, number, OrderLine];
+        })
+        .filter(Boolean) as [number, number, OrderLine][];
+
+      const deal: SalesOrder = {
+        company_id: Number(companyId ?? 0),
+        partner_id: Number(contactId ?? 0),
+        partner_shipping_id: Number(contactId ?? 0),
+        partner_invoice_id: Number(contactId ?? 0),
+        warehouse_id: 1, //  ensure exists in Odoo
+        date_order: new Date().toISOString(),
+        order_line: orderLines,
+      };
+
+      return {
+        vals_list: [deal],
+      };
+    }
+
+    // FINAL SAFETY (important for TS)
+    throw new Error('Invalid payload configuration');
+  }
+
+  async searchSaleOrderCreation(jobId: string, properties: ValsList, property: string): Promise<number[]> {
+    return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/sale.order/create', 'POST', properties, () =>
+      this.odooLibService.search(properties, '/sale.order/create'),
+    ) as unknown as number[];
+  }
+
+  async searchSaleOrderWrite(jobId: string, properties: SearchSalesOrderWrite, property: string): Promise<boolean> {
+    return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/sale.order/write', 'POST', properties, () =>
+      this.odooLibService.search(properties, '/sale.order/write'),
+    ) as unknown as boolean;
+  }
+
+  async searchContactWrite(jobId: string, properties: ValsList, property: string): Promise<number[]> {
+    return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/res.partner/create', 'POST', properties, () =>
+      this.odooLibService.search(properties, '/res.partner/create'),
+    ) as unknown as number[];
+  }
+
+  async searchContactRead(jobId: string, properties: SearchReadParams, property: string): Promise<ContactSearchResponse[]> {
+    return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/res.partner/search_read', 'POST', properties, () =>
+      this.odooLibService.search(properties, '/res.partner/search_read'),
+    ) as unknown as ContactSearchResponse[];
+  }
+
+  async searchCompanyRead(jobId: string, properties: SearchReadParams, property: string): Promise<CompanySearchResponse[]> {
+    return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/res.company/search_read', 'POST', properties, () =>
+      this.odooLibService.search(properties, '/res.company/search_read'),
+    ) as unknown as CompanySearchResponse[];
   }
 
   private async executeTrackedRequest<T>(
