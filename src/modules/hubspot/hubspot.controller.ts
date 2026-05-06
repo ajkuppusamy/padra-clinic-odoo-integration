@@ -81,8 +81,8 @@ export class HubspotController {
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @HttpCode(HttpStatus.OK)
   @Post('deals/:dealId/line-items')
-  async createLineItems(@Param('dealId') dealId: string, @Body() body: ProductDto) {
-    return this.hubspotService.syncOdooProductToHubSpotLineItem(body, dealId);
+  async createLineItems(@Param('dealId') dealId: string, @Body() body: ProductDto[]) {
+    return this.hubspotService.syncOdooProductsToHubSpotLineItems(body, dealId);
   }
 
   @ApiOperation({ summary: 'Create quote for a deal from Odoo data' })

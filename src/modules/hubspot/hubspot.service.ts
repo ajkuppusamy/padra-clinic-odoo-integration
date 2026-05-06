@@ -589,30 +589,50 @@ export class HubspotService {
     return await this.createLineItems(jobId, properties);
   }
 
-  public syncOdooProductToHubSpotLineItem(product: ProductDto, dealId: string) {
-    const properties: SimplePublicObjectInputForCreate = {
-      properties: {
-        name: `${product.name} - ${product.id}`,
-        quantity: String(product.quantity) ?? 1,
-        price: product.price?.toString() || '0',
-        odoo_product_id: product.id.toString(),
-      },
-      associations: [
-        {
-          to: { id: dealId },
-          types: [
+  public async syncOdooProductsToHubSpotLineItems(products: ProductDto[], dealId: string) {
+    const results = await Promise.all(
+      products.map(async (product) => {
+        const properties: SimplePublicObjectInputForCreate = {
+          properties: {
+            name: `${product.name} - ${product.id}`,
+            quantity: String(product.quantity ?? 1),
+            price: product.price?.toString() || '0',
+            odoo_product_id: product.id.toString(),
+          },
+          associations: [
             {
-              associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined,
-              associationTypeId: 20,
+              to: { id: dealId },
+              types: [
+                {
+                  associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined,
+                  associationTypeId: 20,
+                },
+              ],
             },
           ],
-        },
-      ],
-    };
-    this.logger.verbose(`Line Items : ${JSON.stringify(properties)}`);
+        };
 
-    return this.hubspotLibService.createHubspotObject(HubspotObjects.LINE_ITEMS, properties);
+        try {
+          const response = await this.hubspotLibService.createHubspotObject(HubspotObjects.LINE_ITEMS, properties);
+
+          return { success: true, data: response };
+        } catch (error: any) {
+          return {
+            success: false,
+            message: error?.message,
+            productId: product.id,
+          };
+        }
+      }),
+    );
+
+    return {
+      success: true,
+      total: products.length,
+      results,
+    };
   }
+
   private buildAssociation(toId: string, typeId: number) {
     return {
       to: { id: toId },
