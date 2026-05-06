@@ -41,7 +41,7 @@ export class OdooController {
   }
 
   @Get('products')
-  @UseGuards(ApiKeyAuthGuard)
+  // @UseGuards(ApiKeyAuthGuard)
   @ApiOperation({ summary: 'Get products by company with pagination' })
   @ApiQuery({ name: 'companyName', type: String, required: true, example: 'padra' })
   @ApiQuery({ name: 'page', type: Number, required: false, example: 1 })

@@ -7,7 +7,7 @@ import { CreateQuoteDto } from './dto/quotation-flow.dto';
 
 @ApiTags('Hubspot')
 @Controller('hubspot')
-@UseGuards(HubspotAuthGuard)
+// @UseGuards(HubspotAuthGuard)
 export class HubspotController {
   constructor(private readonly hubspotService: HubspotService) {}
 
