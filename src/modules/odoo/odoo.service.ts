@@ -1,4 +1,4 @@
-import { Body, Injectable, Logger } from '@nestjs/common';
+import { ForbiddenException, Injectable, InternalServerErrorException, Logger, UnauthorizedException } from '@nestjs/common';
 import { OdooService as OdooLibService } from '@libs/odoo/odoo.service';
 import { QueueRepository, RequestRepository, ResponseRepository } from '@common/repositories';
 import {
@@ -12,7 +12,7 @@ import {
   UpdateContactRequest,
   UpdateProductRequest,
 } from '@libs/odoo/interfaces';
-import { RequestType, RequestStatus, ResponseStatus, SourceType, QueueStatus, QueueType } from '@common/entities';
+import { RequestType, RequestStatus, ResponseStatus, SourceType, QueueStatus, QueueType, Response } from '@common/entities';
 import { AwsSqsProducerService } from '@libs/aws_sqs/producer.service';
 import { ConfigService } from '@nestjs/config';
 import { HubspotService } from '@modules/hubspot/hubspot.service';
@@ -103,68 +103,154 @@ export class OdooService {
   }
 
   async searchContact(jobId: string, properties: SearchReadParams, property: string): Promise<ContactSearchResponse[]> {
-    return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/search_read', 'POST', properties, () => this.odooLibService.search(properties, '/search_read'));
+    return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/search_read', 'POST', properties, () =>
+      this.odooLibService.search(properties, '/search_read'),
+    ) as unknown as ContactSearchResponse[];
   }
 
-  public async listProductbyCompanyId(companyId: number, page: number = 1, limit: number = 100) {
-    const offset = (page - 1) * limit;
-    let jobId;
+  private async waitForResponses(jobId: string) {
+    this.logger.log(`${this.waitForResponses.name} : ${jobId}`);
+    for (let i = 0; i < 10; i++) {
+      const requests = await this.requestRespository.findByJobId(jobId);
 
-    try {
-      const payload: SearchReadParams = {
-        domain: [['company_id', '=', companyId]],
-        fields: ['id', 'display_name', 'name', 'list_price', 'company_id'],
-        limit,
-        offset,
-      };
+      const allDone = requests.every((r) => r.status === RequestStatus.SUCCESS || r.status === RequestStatus.FAILED);
 
-      const queue = await this.queueRepository
-        .create({
-          sourceType: SourceType.HUBSPOT,
-          queueType: QueueType.LIST,
-          payload,
-          status: QueueStatus.QUEUED,
-          event: 'UI_EXTENSION',
-        })
-        .save();
+      if (allDone) return requests;
 
-      jobId = queue.jobId;
+      await new Promise((res) => setTimeout(res, 500));
+    }
 
-      const products = await this.searchProdctByCompanyId(jobId, payload, 'company_id');
+    return [];
+  }
 
-      await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED, undefined, 'Products fetched successfully');
+  public async listProductbyCompanyName(companyName: string, page = 1, limit = 100) {
+    const companyPayload: SearchReadParams = {
+      domain: [['display_name', 'ilike', `${companyName?.toLowerCase()}`]] as any,
+      fields: ['id', 'display_name', 'name'],
+    };
 
-      return {
-        ...(products?.length > 0 && { page, limit, offset }),
-        data: products || [],
-      };
-    } catch (error) {
-      this.logger.error('Error in listProductbyCompanyId', {
-        jobId,
-        companyId,
-        page,
-        limit,
-        error: error?.['message'] || error,
-      });
+    const queue = await this.queueRepository
+      .create({
+        sourceType: SourceType.HUBSPOT,
+        queueType: QueueType.LIST,
+        payload: companyPayload,
+        status: QueueStatus.QUEUED,
+        event: 'UI_EXTENSION',
+      })
+      .save();
 
-      if (jobId) await this.queueRepository.updateStatus(jobId, QueueStatus.FAILED, error?.['message'] || JSON.stringify(error), 'Failed to fetch products').catch(() => null); // 👈 ignore update failure
+    const jobId = queue.jobId;
+
+    const searchCompany = await this.searchCompanyByName(jobId, companyPayload, 'display_name');
+
+    const companyId = searchCompany?.[0]?.id;
+
+    if (!companyId) {
+      await this.queueRepository.updateStatus(jobId, QueueStatus.SKIPPED, undefined, 'Company not found');
 
       return {
         data: [],
       };
     }
+
+    const productPayload: SearchReadParams = {
+      ids: [companyId],
+      fields: ['id', 'name', 'display_name', 'list_price', 'company_id', 'base_unit_price'],
+    };
+
+    await this.searchProductByCompanyId(jobId, productPayload, 'company_id');
+
+    const requests = await this.waitForResponses(jobId);
+    const requestIds = requests.map((r) => r.id);
+
+    const responses = requestIds.length > 0 ? await this.responseRespository.findByRequestIds(requestIds) : [];
+
+    const normalize = (data: any): any[] => {
+      if (!data) return [];
+      if (Array.isArray(data)) return data;
+      if (Array.isArray(data.result)) return data.result;
+      if (Array.isArray(data.data)) return data.data;
+      return [];
+    };
+
+    const products = responses
+      .filter((r) => r.status === ResponseStatus.SUCCESS && r.data)
+      .flatMap((r) => normalize(r.data))
+      .filter((item) => {
+        return item && typeof item === 'object' && (item.list_price !== undefined || item.company_id !== undefined);
+      });
+
+    const offset = (page - 1) * limit;
+    const paginated = products.slice(offset, offset + limit);
+
+    const total = products.length;
+    const hasNext = offset + limit < total;
+    const hasPrev = page > 1;
+
+    await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED, undefined, 'Product search success');
+
+    return {
+      products: paginated,
+      pagination: {
+        page,
+        limit,
+        total,
+        hasNext,
+        hasPrev,
+        nextPage: hasNext ? page + 1 : null,
+        prevPage: hasPrev ? page - 1 : null,
+      },
+    };
   }
 
-  async searchProdctByCompanyId(jobId: string, properties: SearchReadParams, property: string) {
-    return this.executeTrackedRequest(
-      jobId,
-      RequestType.SEARCH,
-      property,
-      'product.document/search_read',
-      'POST',
-      properties,
-      () => this.odooLibService.search(properties, '/product.product/search_read'), // 'product.product/search_read // product.document/search_read
-    );
+  async searchProductByCompanyId(jobId: string, payload: SearchReadParams, property: string) {
+    try {
+      return await this.executeTrackedRequest(jobId, RequestType.SEARCH, property, 'product.template/read', 'POST', payload, () =>
+        this.odooLibService.search(payload, '/product.template/read'),
+      );
+    } catch (error: any) {
+      const message = (error?.message || '').toLowerCase();
+
+      this.logger.error('[ODOO ERROR CAUGHT]', {
+        jobId,
+        message,
+      });
+
+      if (message.includes('401') || message.includes('unauthorized') || message.includes('invalid apikey')) {
+        throw new UnauthorizedException('Invalid or expired API key');
+      }
+
+      if (message.includes('403') || message.includes('forbidden')) {
+        throw new ForbiddenException('Access denied');
+      }
+
+      throw new InternalServerErrorException(message || 'Odoo request failed');
+    }
+  }
+
+  async searchCompanyByName(jobId: string, payload: SearchReadParams, property: string) {
+    try {
+      return await this.executeTrackedRequest(jobId, RequestType.SEARCH, property, 'pres.company/search_read', 'POST', payload, () =>
+        this.odooLibService.search(payload, '/res.company/search_read'),
+      );
+    } catch (error: any) {
+      const message = (error?.message || '').toLowerCase();
+
+      this.logger.error('[ODOO ERROR CAUGHT]', {
+        jobId,
+        message,
+      });
+
+      if (message.includes('401') || message.includes('unauthorized') || message.includes('invalid apikey')) {
+        throw new UnauthorizedException('Invalid or expired API key');
+      }
+
+      if (message.includes('403') || message.includes('forbidden')) {
+        throw new ForbiddenException('Access denied');
+      }
+
+      throw new InternalServerErrorException(message || 'Odoo request failed');
+    }
   }
 
   async contactProcess(properties: Record<string, any>, jobId: string): Promise<string> {
@@ -297,7 +383,7 @@ export class OdooService {
       await this.requestRespository.updateStatus(request.id, RequestStatus.SUCCESS);
 
       return result;
-    } catch (error) {
+    } catch (error: any) {
       await this.responseRespository.saveResponse(
         this.responseRespository.create({
           requestId: request.id,

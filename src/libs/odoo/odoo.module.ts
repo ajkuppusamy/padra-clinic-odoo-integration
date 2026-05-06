@@ -11,9 +11,9 @@ import * as https from 'https';
       useFactory: () => ({
         timeout: 30000,
         maxRedirects: 5,
-        httpsAgent: new https.Agent({
-          rejectUnauthorized: false,
-        }),
+        // httpsAgent: new https.Agent({
+        //   rejectUnauthorized: false,
+        // }),
       }),
     }),
   ],

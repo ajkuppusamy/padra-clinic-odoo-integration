@@ -31,13 +31,20 @@ export class RequestRepository extends BaseRepository<Request> {
     });
   }
 
-  async updateStatus(requestId: string, status: RequestStatus, error?: string): Promise<void> {
+  async updateStatus(requestId: string, status: RequestStatus, error?: any): Promise<void> {
     await this.getRepo().update(requestId, {
       status,
-      ...(error && { error }),
+      ...(error
+        ? {
+            error: {
+              message: error?.message || error,
+              stack: error?.stack,
+              raw: error,
+            },
+          }
+        : {}),
     });
   }
-
   async incrementRetryCount(requestId: string): Promise<void> {
     await this.getRepo()
       .createQueryBuilder()

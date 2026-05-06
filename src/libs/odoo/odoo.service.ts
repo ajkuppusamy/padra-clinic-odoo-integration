@@ -1,6 +1,6 @@
-import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus, Logger, UnauthorizedException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
-import { firstValueFrom, Observable, timer } from 'rxjs';
+import { firstValueFrom, Observable, throwError, timer } from 'rxjs';
 import { catchError, retry } from 'rxjs/operators';
 import PQueue from 'p-queue';
 import { OdooConfigService } from './config/odoo.config';
@@ -41,6 +41,8 @@ import {
   UpdateProductResponse,
   UpdateQuotationRequest,
 } from './interfaces';
+import { Product } from '@modules/odoo/interfaces';
+import { ERROR_MESSAGES } from '@common/constants';
 
 /**
  * Service for interacting with Odoo ERP system API
@@ -138,15 +140,24 @@ export class OdooService {
    * @throws {HttpException} When request fails after all retry attempts
    */
   private async request<T>(method: string, path: string, data?: any, searchAPIHeaders?: Record<string, string>): Promise<T> {
-    this.logRequest(method, path);
+    const url = searchAPIHeaders ? this.searchUrl : `${this.baseURL}${path}`;
+
+    this.logger.debug('HTTP Request', {
+      method,
+      path,
+      baseURL: this.baseURL,
+      searchURL: this.searchUrl,
+      finalURL: url,
+      isSearchAPI: !!searchAPIHeaders,
+    });
 
     return await this.requestQueue.add(async () => {
       try {
         const response = await firstValueFrom(
-          await this.httpService
+          this.httpService
             .request({
               method,
-              url: searchAPIHeaders ? this.searchUrl : `${this.baseURL}${path}`,
+              url: searchAPIHeaders ? `${this.searchUrl}${path}` : `${this.baseURL}${path}`,
               headers: searchAPIHeaders ?? this.getHeaders(),
               data,
               timeout: this.timeout,
@@ -156,9 +167,12 @@ export class OdooService {
                 count: this.retryAttempts,
                 delay: (_error, retryCount) => timer(retryCount * 1000),
               }),
-              catchError((error) => this.handleError(error, method, path)),
             ),
         );
+
+        if (!response) {
+          throw new Error('Empty response from HTTP service');
+        }
 
         return response.data;
       } catch (error) {
@@ -166,7 +180,6 @@ export class OdooService {
       }
     });
   }
-
   private logRequest(method: string, path: string): void {
     this.logger.debug(`${method} ${path}`);
   }
@@ -176,16 +189,16 @@ export class OdooService {
       const status = error.response.status;
       const message = error.response.data?.message || error.response.data;
 
-      this.logger.error(`${method} ${path} failed: ${status} - ${message}`);
+      this.logger.error(`${this.handleError.name} - ${method} ${path} failed: ${status} - ${message}`);
 
       if (status === 401) {
-        throw new HttpException('Invalid API key', HttpStatus.UNAUTHORIZED);
+        throw new UnauthorizedException(ERROR_MESSAGES.UNAUTHORIZED);
       }
       if (status === 403) {
-        throw new HttpException('Access forbidden', HttpStatus.FORBIDDEN);
+        throw new ForbiddenException(ERROR_MESSAGES.FORBIDDEN);
       }
       if (status === 404) {
-        throw new HttpException('Resource not found', HttpStatus.NOT_FOUND);
+        throw new NotFoundException(ERROR_MESSAGES.RECORD_NOT_FOUND);
       }
       if (status === 429) {
         throw new HttpException('Rate limit exceeded', HttpStatus.TOO_MANY_REQUESTS);
@@ -476,7 +489,7 @@ export class OdooService {
    * @returns {Promise<ContactSearchResponse>} Promise resolving to search results
    * @throws {HttpException} When API error occurs
    */
-  async search(search: SearchReadParams, path: string): Promise<ContactSearchResponse[] | []> {
-    return await this.request<ContactSearchResponse[]>('POST', path, search, this.getSearchHeaders());
+  async search(search: Partial<SearchReadParams>, path: string): Promise<ContactSearchResponse[] | Product[]> {
+    return await this.request<ContactSearchResponse[] | Product[]>('POST', path, search, this.getSearchHeaders());
   }
 }

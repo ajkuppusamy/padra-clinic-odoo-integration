@@ -4,7 +4,7 @@ import { ApiTags, ApiOperation, ApiHeaders, ApiResponse, ApiBody, ApiQuery, ApiB
 import { ODOO_WEBHOOK_EVENT_NAMES, isValidOdooEventName } from './interfaces/odoo-webhook';
 import { BadRequestException } from '@nestjs/common';
 import { OdooWebhookDto } from './dto/odoo-webhook.dto';
-import { BearerAuthGuard, OdooWebhookGuard } from '@common/guard';
+import { ApiKeyAuthGuard } from '@common/guard';
 
 @ApiTags('Odoo Webhooks')
 @Controller('odoo')
@@ -41,27 +41,26 @@ export class OdooController {
   }
 
   @Get('products')
-  //@UseGuards(BearerAuthGuard)
+  @UseGuards(ApiKeyAuthGuard)
   @ApiOperation({ summary: 'Get products by company with pagination' })
-  @ApiQuery({ name: 'companyId', type: Number, required: true, example: 1 })
+  @ApiQuery({ name: 'companyName', type: String, required: true, example: 'padra' })
   @ApiQuery({ name: 'page', type: Number, required: false, example: 1 })
   @ApiQuery({ name: 'limit', type: Number, required: false, example: 100 })
   @ApiHeaders([
     {
-      name: 'Authorization',
+      name: 'o-x-api-key',
       required: true,
-      description: 'Bearer access token. Format: Bearer <your_token>',
+      description: 'Odoo Api Key',
     },
   ])
-  @ApiResponse({
-    status: 200,
-    description: 'List of products',
-  })
+  @ApiResponse({ status: 200, description: 'List of products' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   async listProducts(
-    @Query('companyId', ParseIntPipe) companyId: number,
+    @Query('companyName') companyName: string,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(100), ParseIntPipe) limit: number,
   ) {
-    return this.odooService.listProductbyCompanyId(companyId, page, limit);
+    return this.odooService.listProductbyCompanyName(companyName, page, limit);
   }
 }

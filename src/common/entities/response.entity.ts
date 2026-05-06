@@ -29,7 +29,7 @@ export class Response extends BaseModel {
   data: any;
 
   @Column({ name: 'error', type: 'jsonb', nullable: true })
-  error!: any;
+  error?: Record<string, any> | null;
 
   @Column({ name: 'duration_ms', type: 'integer' })
   durationMs!: number;

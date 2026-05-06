@@ -66,4 +66,7 @@ export class Request extends BaseModel {
 
   @Column({ name: 'sent_at', type: 'timestamptz', nullable: true })
   sentAt!: Date | null;
+
+  @Column({ name: 'error', type: 'jsonb', nullable: true })
+  error: any;
 }

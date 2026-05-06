@@ -6,8 +6,9 @@ export interface ContactSearchResponse {
 }
 
 export interface SearchReadParams {
-  domain: Array<[string, string, string | number | boolean | null]>;
-  fields: string[];
-  limit: number;
+  domain?: Array<[string, string, string | number | boolean | null | any]>;
+  fields?: string[];
+  limit?: number;
   offset?: number;
+  ids?: number[];
 }

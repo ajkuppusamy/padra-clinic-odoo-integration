@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
-import { EntityManager } from 'typeorm';
+import { EntityManager, In } from 'typeorm';
 import { BaseRepository } from '@common/repositories';
 import { Response, ResponseStatus } from '@common/entities';
 
@@ -47,6 +47,17 @@ export class ResponseRepository extends BaseRepository<Response> {
       where: { status },
       order: { createdAt: 'ASC' },
       take: limit,
+    });
+  }
+
+  async findByRequestIds(requestIds: string[]): Promise<Response[]> {
+    if (!requestIds.length) return [];
+
+    return this.getRepo().find({
+      where: {
+        requestId: In(requestIds),
+      },
+      order: { createdAt: 'ASC' },
     });
   }
 }

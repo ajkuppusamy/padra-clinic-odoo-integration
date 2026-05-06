@@ -19,8 +19,9 @@ import { HUBSPOT_OBJECT_PROPERTIES } from '@libs/hubspot/constants/properties';
 import { PaymentCreatedEvent, ProductCreateEvent, ProductUpdateEvent } from '@modules/odoo/interfaces/event.interfaces';
 import { delay } from '@common/utils';
 import { ConvertQuotationResponse } from '@libs/odoo/interfaces';
-import { HubspotWebhookDto } from './dto';
+import { HubspotWebhookDto, ProductDto } from './dto';
 import { PublicOwner } from '@hubspot/api-client/lib/codegen/crm/owners/models/all';
+import { Product } from '@modules/odoo/interfaces';
 
 @Injectable()
 export class HubspotService {
@@ -35,8 +36,8 @@ export class HubspotService {
     private readonly hubspotLibService: HubspotLibService,
   ) {}
 
-  async sendQuotation(data: HubspotWebhookDto) {
-    const method = this.sendQuotation.name;
+  async sendSQS(data: HubspotWebhookDto, event?: string) {
+    const method = this.sendSQS.name;
     const sqsUrl = this.configService.get<string>('AWS_Q1_QUEUE_URL') ?? '';
 
     if (!sqsUrl) {
@@ -52,7 +53,7 @@ export class HubspotService {
           queueType: QueueType.WEBHOOK,
           sourceType: SourceType.HUBSPOT,
           status: QueueStatus.QUEUED,
-          event: 'deal_update',
+          event: event ?? 'deal_update',
         }),
       );
       await this.sqsProducerService.sendMessage(sqsUrl, queueRec?.jobId, data, 'deal_update');
@@ -574,16 +575,42 @@ export class HubspotService {
     return this.createQuote(jobId, payload);
   }
 
-  public async processCreateLinetems(jobId: string, dealId: string, payment: PaymentCreatedEvent) {
+  public async processCreateLinetems(jobId: string, dealId: string, payment: PaymentCreatedEvent | Product) {
     const properties: SimplePublicObjectInputForCreate = {
       properties: {
         name: `${payment.transaction_id} - ${payment.invoice_id}`,
         quantity: '1',
         price: payment.amount_paid?.toString(),
+        odooodoo_product_id: payment?.['id'],
       },
       associations: [{ to: { id: dealId }, types: [{ associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined, associationTypeId: 20 }] }],
     };
     return await this.createLineItems(jobId, properties);
+  }
+
+  public syncOdooProductToHubSpotLineItem(product: ProductDto, dealId: string) {
+    const properties: SimplePublicObjectInputForCreate = {
+      properties: {
+        name: `${product.name} - ${product.id}`,
+        quantity: '1',
+        price: product.price?.toString() || '0',
+        odoo_product_id: product.id.toString(),
+      },
+      associations: [
+        {
+          to: { id: dealId },
+          types: [
+            {
+              associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined,
+              associationTypeId: 20,
+            },
+          ],
+        },
+      ],
+    };
+    this.logger.verbose(`Line Items : ${JSON.stringify(properties)}`);
+
+    return this.hubspotLibService.createHubspotObject(HubspotObjects.LINE_ITEMS, properties);
   }
 
   private async executeTrackedRequest<T>(
@@ -637,7 +664,7 @@ export class HubspotService {
       });
 
       return result;
-    } catch (error) {
+    } catch (error: any) {
       await this.responseRepository.saveResponse(
         await this.responseRepository.create({
           requestId: request.id,
