@@ -27,7 +27,7 @@ export interface InvoiceIds {
 }
 
 export interface ValsList {
-  vals_list: SalesOrder[] | Contact[];
+  vals_list: SalesOrder[] | Contact[] | Invoice[];
 }
 
 export interface Contact {
@@ -55,4 +55,27 @@ export interface OrderLine {
   name: string;
   price_unit: number;
   product_uom_qty: number;
+}
+
+export interface Invoice {
+  move_type: string | 'out_invoice';
+  partner_id: number;
+  invoice_date: string;
+  invoice_line_ids: [number, number, InvoiceLineId][];
+}
+
+export interface InvoiceLineId {
+  product_id: number;
+  name: string;
+  quantity: number;
+  price_unit: number;
+}
+
+export interface QuoteCvtInvoice {
+  ids: number[];
+  vals: InvoiceIds;
+}
+
+export interface InvoiceIds {
+  invoice_ids: number[];
 }

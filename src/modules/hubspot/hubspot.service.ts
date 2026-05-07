@@ -282,7 +282,7 @@ export class HubspotService {
   public async processInvoice(
     jobId: string,
     quotation: Partial<ConvertQuotationResponse>,
-    deal: SimplePublicObjectWithAssociations,
+    deal: SimplePublicObjectWithAssociations | SimplePublicObject,
     lineItems: SimplePublicObject[],
     contact: SimplePublicObject[],
   ) {
@@ -500,6 +500,19 @@ export class HubspotService {
     return deals[0]?.toObjectId;
   }
 
+  public async fetchAssociatedQuoteByDealId(dealId: string, jobId: string): Promise<string | null> {
+    const quotes = await this.executeTrackedRequest(jobId, RequestType.FETCH_QUOTE, dealId, `/deals/${dealId}/associations/quotes`, 'GET', {}, () =>
+      this.hubspotLibService.getHubspotAssociations(HubspotObjects.DEALS, dealId, HubspotObjects.QUOTES),
+    );
+
+    if (!quotes?.length) {
+      this.logger.warn(`${this.fetchAssociatedQuoteByDealId.name} No associated quotes found`, { dealId, jobId });
+
+      return null;
+    }
+
+    return quotes[0]?.toObjectId ?? null;
+  }
   public async fetchAssociatedDealIdByInVoiceId(invoiceId: string, jobId: string): Promise<string | null> {
     const deals = await this.executeTrackedRequest(jobId, RequestType.FETCH_DEAL, invoiceId, `/invoices/${invoiceId}/associations/deals`, 'GET', {}, () =>
       this.hubspotLibService.getHubspotAssociations(HubspotObjects.INVOICES, invoiceId, HubspotObjects.DEALS),
@@ -706,11 +719,11 @@ export class HubspotService {
         };
       }
 
-      const payload = await this.buildQuotePayloadObject(deal.id, lineItems, deal.properties, owner as PublicOwner, undefined, template?.id);
+      // const payload = await this.buildQuotePayloadObject(deal.id, lineItems, deal.properties, owner as PublicOwner, undefined, template?.id);
 
-      const response = await this.hubspotLibService.createHubspotObject(HubspotObjects.QUOTES, payload);
+      // const response = await this.hubspotLibService.createHubspotObject(HubspotObjects.QUOTES, payload);
 
-      return response;
+      return lineItemsResponse;
     } catch (error: any) {
       return {
         success: false,

@@ -17,6 +17,9 @@ import {
   Contact,
   SalesOrder,
   OrderLine,
+  QuoteCvtInvoice,
+  InvoiceLineId,
+  Invoice,
 } from '@libs/odoo/interfaces';
 import { RequestType, RequestStatus, ResponseStatus, SourceType, QueueStatus, QueueType, Response } from '@common/entities';
 import { AwsSqsProducerService } from '@libs/aws_sqs/producer.service';
@@ -210,6 +213,95 @@ export class OdooService {
     };
   }
 
+  public async listProductbyPipelineId(pipelineId: number, page = 1, limit = 100) {
+    const pipelineCompanyMap: Record<string, number> = JSON.parse(this.configService.get<string>('HUBSPOT_PIPELINE_ODOO_COMPANY_MAP') || '{}');
+
+    const companyId = pipelineCompanyMap[pipelineId] || pipelineCompanyMap.default;
+
+    if (!companyId) {
+      return {
+        products: [],
+        pagination: {
+          page,
+          limit,
+          total: 0,
+          hasNext: false,
+          hasPrev: false,
+          nextPage: null,
+          prevPage: null,
+        },
+      };
+    }
+
+    const queue = await this.queueRepository
+      .create({
+        sourceType: SourceType.HUBSPOT,
+        queueType: QueueType.LIST,
+        payload: {
+          companyId,
+        },
+        status: QueueStatus.QUEUED,
+        event: 'UI_EXTENSION',
+      })
+      .save();
+
+    const jobId = queue.jobId;
+
+    const productPayload: SearchReadParams = {
+      domain: [['company_id', '=', companyId]] as any,
+      fields: ['id', 'name', 'display_name', 'list_price', 'company_id', 'base_unit_price'],
+    };
+
+    await this.searchProductByCompanyId(jobId, productPayload, 'company_id');
+
+    const requests = await this.waitForResponses(jobId);
+
+    const requestIds = requests.map((r) => r.id);
+
+    const responses = requestIds.length > 0 ? await this.responseRespository.findByRequestIds(requestIds) : [];
+
+    const normalize = (data: any): any[] => {
+      if (!data) return [];
+      if (Array.isArray(data)) return data;
+      if (Array.isArray(data.result)) return data.result;
+      if (Array.isArray(data.data)) return data.data;
+
+      return [];
+    };
+
+    const products = responses
+      .filter((r) => r.status === ResponseStatus.SUCCESS && r.data)
+      .flatMap((r) => normalize(r.data))
+      .filter((item) => {
+        return item && typeof item === 'object' && (item.list_price !== undefined || item.company_id !== undefined);
+      });
+
+    const offset = (page - 1) * limit;
+
+    const paginated = products.slice(offset, offset + limit);
+
+    const total = products.length;
+
+    const hasNext = offset + limit < total;
+
+    const hasPrev = page > 1;
+
+    await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED, undefined, 'Product search success');
+
+    return {
+      products: paginated,
+      pagination: {
+        page,
+        limit,
+        total,
+        hasNext,
+        hasPrev,
+        nextPage: hasNext ? page + 1 : null,
+        prevPage: hasPrev ? page - 1 : null,
+      },
+    };
+  }
+
   async searchProductByCompanyId(jobId: string, payload: SearchReadParams, property: string) {
     try {
       return await this.executeTrackedRequest(jobId, RequestType.SEARCH, property, 'product.template/read', 'POST', payload, () =>
@@ -353,74 +445,97 @@ export class OdooService {
     properties: SimplePublicObject,
     companyId?: number | string,
     isWrite = false,
-    object?: 'contacts' | 'companies' | 'deals',
+    object?: 'contacts' | 'deals' | 'invoice',
     contactId?: number | string,
     lineItems?: SimplePublicObject[],
   ): Promise<ValsList | SearchReadParams> {
-    const email = properties?.properties?.email ?? null;
-    const pipeline = properties?.properties?.pipeline ?? null;
-
+    const email = properties?.properties?.email;
+    const pipeline = properties?.properties?.pipeline;
+    this.logger.debug(`email -${email} , pipeline: ${pipeline}`);
     if (!isWrite) {
-      const domainCondition: [string, string, any] = email ? ['email', 'ilike', email] : ['name', 'ilike', pipeline];
-
       return {
-        domain: [domainCondition],
+        domain: [email ? ['email', 'ilike', email] : ['name', 'ilike', pipeline]],
         fields: ['display_name', 'id', 'name', 'email'],
         limit: 1,
       };
     }
 
     if (object === 'contacts') {
-      const contact: Contact = {
-        email: email ?? '',
-        company_id: String(companyId ?? ''),
-        autopost_bills: 'never',
-        street: properties?.properties?.street ?? undefined,
-        city: properties?.properties?.city ?? undefined,
-        zip: properties?.properties?.zip ?? undefined,
-      };
-
       return {
-        vals_list: [contact],
+        vals_list: [
+          {
+            email: email ?? '',
+            company_id: String(companyId ?? ''),
+            autopost_bills: 'never',
+            street: properties?.properties?.street ?? '',
+            city: properties?.properties?.city ?? '',
+            zip: properties?.properties?.zip ?? '',
+          },
+        ],
       };
     }
+
+    const mappedLines = (lineItems ?? [])
+      .map((item) => {
+        const productId = Number(item?.properties?.odoo_product_id);
+        if (!productId) return null;
+        return {
+          product_id: productId,
+          name: item?.properties?.name ?? 'Item',
+          quantity: Number(item?.properties?.quantity ?? 1),
+          price_unit: Number(item?.properties?.price ?? 0),
+        };
+      })
+      .filter(Boolean);
 
     if (object === 'deals') {
-      const orderLines: [number, number, OrderLine][] = (lineItems ?? [])
-        .map((item) => {
-          const productId = Number(item?.properties?.odoo_product_id);
-
-          if (!productId) return null;
-
-          return [
-            0,
-            0,
-            {
-              product_id: productId,
-              name: item?.properties?.name ?? 'Item',
-              price_unit: Number(item?.properties?.price ?? 0),
-              product_uom_qty: Number(item?.properties?.quantity ?? 1),
-            },
-          ] as [number, number, OrderLine];
-        })
-        .filter(Boolean) as [number, number, OrderLine][];
-
-      const deal: SalesOrder = {
-        company_id: Number(companyId ?? 0),
-        partner_id: Number(contactId ?? 0),
-        partner_shipping_id: Number(contactId ?? 0),
-        partner_invoice_id: Number(contactId ?? 0),
-        warehouse_id: 1, //  ensure exists in Odoo
-        date_order: new Date().toISOString(),
-        order_line: orderLines,
-      };
-
       return {
-        vals_list: [deal],
+        vals_list: [
+          {
+            company_id: Number(companyId ?? 0),
+            partner_id: Number(contactId ?? 0),
+            partner_shipping_id: Number(contactId ?? 0),
+            partner_invoice_id: Number(contactId ?? 0),
+            warehouse_id: 1,
+            date_order: new Date().toISOString(),
+            order_line: mappedLines.map((line) => [
+              0,
+              0,
+              {
+                product_id: line!.product_id,
+                name: line!.name,
+                product_uom_qty: line!.quantity,
+                price_unit: line!.price_unit,
+              },
+            ]),
+          },
+        ],
       };
     }
 
-    // FINAL SAFETY (important for TS)
+    if (object === 'invoice') {
+      return {
+        vals_list: [
+          {
+            move_type: 'out_invoice',
+            partner_id: Number(contactId ?? 0),
+            invoice_date: new Date().toISOString().split('T')[0],
+
+            invoice_line_ids: mappedLines.map((line) => [
+              0,
+              0,
+              {
+                product_id: line!.product_id,
+                name: line!.name,
+                quantity: line!.quantity,
+                price_unit: line!.price_unit,
+              },
+            ]),
+          },
+        ],
+      };
+    }
+
     throw new Error('Invalid payload configuration');
   }
 
@@ -452,6 +567,18 @@ export class OdooService {
     return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/res.company/search_read', 'POST', properties, () =>
       this.odooLibService.search(properties, '/res.company/search_read'),
     ) as unknown as CompanySearchResponse[];
+  }
+
+  async searchInvoiceCreate(jobId: string, properties: ValsList, property: string): Promise<number[]> {
+    return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/account.move/create', 'POST', properties, () =>
+      this.odooLibService.search(properties, '/account.move/create'),
+    ) as unknown as number[];
+  }
+
+  async searchQuoteCvtInvoice(jobId: string, properties: QuoteCvtInvoice, property: string): Promise<boolean> {
+    return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/sale.order/write', 'POST', properties, () =>
+      this.odooLibService.search(properties, '/sale.order/write'),
+    ) as unknown as boolean;
   }
 
   private async executeTrackedRequest<T>(

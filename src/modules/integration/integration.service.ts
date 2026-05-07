@@ -3,7 +3,7 @@ import { QueueRepository } from '@common/repositories';
 import { toHubspotDateValue } from '@common/utils';
 import { SimplePublicObject, SimplePublicObjectWithAssociations } from '@hubspot/api-client/lib/codegen/crm/companies';
 import { PublicOwner } from '@hubspot/api-client/lib/codegen/crm/owners/models/all';
-import { CreateQuotationResponse, SearchReadParams, ValsList } from '@libs/odoo/interfaces';
+import { CreateQuotationResponse, QuoteCvtInvoice, SearchReadParams, ValsList } from '@libs/odoo/interfaces';
 import { PaymentMethod } from '@modules/hubspot/dto/quotation-flow.dto';
 import { HubspotService } from '@modules/hubspot/hubspot.service';
 import { InvoiceCreatedEvent, PaymentCreatedEvent, ProductCreateEvent, ProductUpdateEvent, QuotationStatusUpdateEvent } from '@modules/odoo/interfaces/event.interfaces';
@@ -378,13 +378,13 @@ export class IntegrationService {
     const searchPayload = (await this.odooService.buildOdooObjectSearchPayload(contact, companyId)) as ValsList | SearchReadParams;
     const contactRead = await this.odooService.searchContactRead(jobId, searchPayload as SearchReadParams, 'email');
     if (contactRead.length) {
-      await this.hubspotService.updateContactById(jobId, contact.id, { odoo_contact_id: contactRead[0]?.id });
-      return contactRead[0]?.id;
+      await this.hubspotService.updateContactById(jobId, contact.id, { odoo_contact_id: contactRead?.[0]?.id });
+      return contactRead?.[0]?.id;
     }
     const writeContactPayload = (await this.odooService.buildOdooObjectSearchPayload(contact, companyId)) as ValsList;
     const createContact = await this.odooService.searchContactWrite(jobId, writeContactPayload, 'email');
-    await this.hubspotService.updateContactById(jobId, contact.id, { odoo_contact_id: createContact[0] });
-    return createContact[0];
+    await this.hubspotService.updateContactById(jobId, contact.id, { odoo_contact_id: createContact?.[0] });
+    return createContact?.[0];
   }
 
   public async dealPipeLineByGetCompanyId(jobId: string, deal: SimplePublicObject): Promise<number | null> {
@@ -393,8 +393,45 @@ export class IntegrationService {
     return searchCompany[0]?.id;
   }
 
+  private async handleOdooInvoiceUpsertProcess(
+    jobId: string,
+    deal: SimplePublicObject,
+    lineItems: SimplePublicObject[],
+    odooContactId: string,
+    odoocompanyId: string,
+    odooQuoteId: string,
+    hubspotContact: SimplePublicObject,
+  ) {
+    this.logger.log(`[handleOnlinePayment] Converting quotation to invoice`, {
+      jobId,
+      odooQuoteId,
+    });
+    const payload = (await this.odooService.buildOdooObjectSearchPayload(deal, odoocompanyId, true, 'invoice', odooContactId, lineItems)) as QuoteCvtInvoice;
+    const odooInvoice = await this.odooService.searchQuoteCvtInvoice(jobId, payload, 'quotation_id');
+
+    /** Create hubspot invoice and associate with deal */
+    const createInvoice = await this.hubspotService.processInvoice(jobId, { quotation_id: odooQuoteId, invoice_id: String(odooInvoice[0]) }, deal, lineItems, [hubspotContact]);
+
+    this.logger.log(`[handleOnlinePayment] Invoice created`, {
+      jobId,
+      odooInvoiceId: odooInvoice[0],
+      hubspotInvoiceId: createInvoice.id,
+    });
+
+    if (!createInvoice.id) return await this.handleSkip(jobId, `${this.handleOdooInvoiceUpsertProcess.name}`, 'hubspot Invoice Create failed');
+
+    /** Update quotation invoice id into the hubspot invoice */
+
+    // await this.hubspotService.updateQuoteById(jobId, quoteId, {
+    //   odoo_invoice_id: invoice.invoice_id,
+    //   odoo_quotation_id: invoice.quotation_id,
+    // });
+
+    /** Generate payment link and update in deal */
+  }
+
   async odooSalesOrderExecution(dealId: string, jobId: string) {
-    const context = 'odooSalesOrderExecution';
+    const context = this.odooSalesOrderExecution.name;
 
     this.logger.log(`[${context}] Started`, { jobId, dealId });
 
@@ -408,18 +445,21 @@ export class IntegrationService {
       });
       if (!contacts.length) return await this.handleSkip(jobId, context, 'Deal Associated Contact Not Found');
 
-      const stageId = this.configService.get<string>('HUBSPOT_QUOTATION_STAGE_ID');
-      this.logger.debug(`Deal Stage Id : ${stageId}`);
+      const stageIds = this.configService.get<string>('HUBSPOT_QUOTATION_STAGE_IDS')?.split(',');
 
-      if (deal.properties.dealstage !== stageId) return await this.handleSkip(jobId, context, 'Deal Stage not Quotation Process');
+      this.logger.debug(`Deal Stage Ids : ${stageIds}`);
+
+      if (!stageIds?.includes(deal.properties.dealstage as string)) return await this.handleSkip(jobId, context, 'Deal Stage not Quotation Process');
 
       const companyId = await this.dealPipeLineByGetCompanyId(jobId, deal);
 
       if (!companyId) return await this.handleSkip(jobId, context, 'Odoo Product Not Found based on deal pipeline');
 
-      const primaryContact: SimplePublicObject = contacts[0];
+      const primaryContact: SimplePublicObject = contacts?.[0];
 
-      const odooContactId = await this.odooSearchUpsertContactProcess(jobId, primaryContact[0], String(companyId));
+      this.logger.debug(`Contact : ${JSON.stringify(primaryContact)}`);
+
+      const odooContactId = await this.odooSearchUpsertContactProcess(jobId, primaryContact, String(companyId));
 
       if (!odooContactId) return await this.handleSkip(jobId, context, 'No associated contact found');
 
@@ -427,7 +467,6 @@ export class IntegrationService {
 
       const isOffline = offlinePaymentMethod.includes(deal?.properties?.payment_method as unknown as PaymentMethod);
 
-      const lineitemProperties = lineItems.map((i) => i?.properties);
       this.logger.debug(`total Line Items: ${lineItems.length}`);
       if (!lineItems.length) return await this.handleSkip(jobId, context, 'No Associated LinItems');
 
@@ -459,9 +498,9 @@ export class IntegrationService {
       if (hs_quote_amount) await this.updateDeal(jobId, dealId, { amount: hs_quote_amount });
 
       if (isOffline) {
-        await this.handleOfflineFlow(jobId, quoteId.id, { quotation_id: String(quotation?.[0]) });
+        await this.handleOfflineFlow(jobId, quoteId.id as string, { quotation_id: String(quotation[0]) });
       } else {
-        await this.handleOnlineFlow(jobId, { quotation_id: String(quotation?.[0]) }, deal, lineItems, contacts);
+        await this.handleOdooInvoiceUpsertProcess(jobId, deal, lineItems, String(odooContactId), String(companyId), String(quotation[0]), primaryContact);
       }
 
       await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);

@@ -1,5 +1,6 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsNumber, IsOptional, IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { IsArray, IsBoolean, IsDateString, IsEmail, IsNumber, IsOptional, IsString, ValidateNested } from 'class-validator';
 
 export class BaseEventDto {
   @ApiPropertyOptional({
@@ -194,3 +195,229 @@ export class ProductEventDto extends PaymentLinkTabiTamaraEventDto {
 }
 
 export class OdooWebhookDto extends ProductEventDto {}
+
+export class WebhookLineDto {
+  @ApiPropertyOptional({
+    example: '',
+    description: 'Product default code',
+  })
+  @IsOptional()
+  @IsString()
+  default_code?: string;
+
+  @ApiPropertyOptional({
+    example: 500,
+    description: 'Line subtotal amount',
+  })
+  @IsOptional()
+  @IsNumber()
+  price_subtotal?: number;
+
+  @ApiPropertyOptional({
+    example: 500,
+    description: 'Unit price',
+  })
+  @IsOptional()
+  @IsNumber()
+  price_unit?: number;
+
+  @ApiPropertyOptional({
+    example: 3,
+    description: 'Product ID',
+  })
+  @IsOptional()
+  @IsNumber()
+  product_id?: number;
+
+  @ApiPropertyOptional({
+    example: 'Test Product',
+    description: 'Product name',
+  })
+  @IsOptional()
+  @IsString()
+  product_name?: string;
+
+  @ApiPropertyOptional({
+    example: 1,
+    description: 'Product quantity',
+  })
+  @IsOptional()
+  @IsNumber()
+  quantity?: number;
+}
+
+export class OdooEventWebhookDto {
+  @ApiPropertyOptional({
+    example: 'USD',
+    description: 'Currency code',
+  })
+  @IsOptional()
+  @IsString()
+  currency?: string;
+
+  @ApiPropertyOptional({
+    example: 'invoice_created',
+    description: 'Webhook event type',
+  })
+  @IsOptional()
+  @IsString()
+  event_type?: string; //invoice_created , quotation_status_update
+
+  @ApiPropertyOptional({
+    type: [WebhookLineDto],
+    description: 'Webhook line items',
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => WebhookLineDto)
+  lines?: WebhookLineDto[];
+
+  @ApiPropertyOptional({
+    example: 'user@example.com',
+    description: 'Partner email',
+  })
+  @IsOptional()
+  @IsEmail()
+  partner_email?: string;
+
+  @ApiPropertyOptional({
+    example: 20,
+    description: 'Partner ID',
+  })
+  @IsOptional()
+  @IsNumber()
+  partner_id?: number;
+
+  @ApiPropertyOptional({
+    example: 'John Doe',
+    description: 'Partner name',
+  })
+  @IsOptional()
+  @IsString()
+  partner_name?: string;
+
+  @ApiPropertyOptional({
+    example: '2026-05-07T06:54:23Z',
+    description: 'Webhook timestamp',
+  })
+  @IsOptional()
+  @IsDateString()
+  timestamp?: string;
+
+  @ApiPropertyOptional({
+    example: 575,
+    description: 'Total amount',
+  })
+  @IsOptional()
+  @IsNumber()
+  total_amount?: number;
+
+  // Invoice Fields
+
+  @ApiPropertyOptional({
+    example: '2026-05-07',
+    description: 'Invoice due date',
+  })
+  @IsOptional()
+  @IsDateString()
+  due_date?: string;
+
+  @ApiPropertyOptional({
+    example: '2026-05-18',
+    description: 'Invoice date',
+  })
+  @IsOptional()
+  @IsDateString()
+  invoice_date?: string;
+
+  @ApiPropertyOptional({
+    example: 'INV/2026/00002',
+    description: 'Invoice reference',
+  })
+  @IsOptional()
+  @IsString()
+  invoice_reference?: string;
+
+  @ApiPropertyOptional({
+    example: 'out_invoice',
+    description: 'Move type',
+  })
+  @IsOptional()
+  @IsString()
+  move_type?: string;
+
+  @ApiPropertyOptional({
+    example: 'not_paid',
+    description: 'Payment state',
+  })
+  @IsOptional()
+  @IsString()
+  payment_state?: string;
+
+  @ApiPropertyOptional({
+    example: 575,
+    description: 'Residual amount',
+  })
+  @IsOptional()
+  @IsNumber()
+  residual_amount?: number;
+
+  @ApiPropertyOptional({
+    example: 'posted',
+    description: 'Invoice state',
+  })
+  @IsOptional()
+  @IsString()
+  state?: string;
+
+  @ApiPropertyOptional({
+    example: 75,
+    description: 'Tax amount',
+  })
+  @IsOptional()
+  @IsNumber()
+  tax_amount?: number;
+
+  @ApiPropertyOptional({
+    example: 500,
+    description: 'Untaxed amount',
+  })
+  @IsOptional()
+  @IsNumber()
+  untaxed_amount?: number;
+
+  // Quotation Fields
+
+  @ApiPropertyOptional({
+    example: '2026-05-07T06:46:42',
+    description: 'Quotation order date',
+  })
+  @IsOptional()
+  @IsDateString()
+  date_order?: string;
+
+  @ApiPropertyOptional({
+    example: 'sale',
+    description: 'New quotation status',
+  })
+  @IsOptional()
+  @IsString()
+  new_status?: string;
+
+  @ApiPropertyOptional({
+    example: 'draft',
+    description: 'Previous quotation status',
+  })
+  @IsOptional()
+  @IsString()
+  previous_status?: string;
+
+  @ApiPropertyOptional({
+    example: 'S00016',
+    description: 'Quotation reference',
+  })
+  @IsOptional()
+  @IsString()
+  quotation_reference?: string;
+}

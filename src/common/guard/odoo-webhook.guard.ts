@@ -11,7 +11,7 @@ export class OdooWebhookGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest();
 
-    let signature = request.headers['x-odoo-signature'] as string;
+    let signature = request.headers['x-webhook-signature'] as string;
     const rawBody: Buffer = request.rawBody;
     const parsedBody = request.body;
     const secret = this.configService.get<string>('ODOO_WEBHOOK_SECRET');
@@ -28,7 +28,7 @@ export class OdooWebhookGuard implements CanActivate {
     }
 
     if (!signature) {
-      this.logger.warn('Missing X-Odoo-Signature header');
+      this.logger.warn('Missing X-Webhook-Signature header');
       throw new UnauthorizedException('Missing signature');
     }
 

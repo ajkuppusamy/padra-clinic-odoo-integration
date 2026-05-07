@@ -7,11 +7,14 @@ type Stage = 'dev' | 'prod';
 const configs: Record<Stage, Record<string, string>> = {
   dev: {
     HUBSPOT_DEAL_STAGE_CLOSED_WON: 'dev_closedwon_id',
-    HUBSPOT_QUOTATION_STAGE_ID: '2917353456',
+
+    HUBSPOT_QUOTATION_STAGE_IDS: '2917353456,3047415744,3047438308,3047370710,3047359436',
+    HUBSPOT_PIPELINE_ODOO_COMPANY_MAP: '{"default":8,"1532546015":9,"1536340930":1,"1532546016":2,"1563799544":9}',
   },
   prod: {
     HUBSPOT_DEAL_STAGE_CLOSED_WON: 'prod_closedwon_id',
-    HUBSPOT_QUOTATION_STAGE_ID: '',
+    HUBSPOT_PIPELINE_ODOO_COMPANY_MAP: 'prod1,prod2,prod3',
+    HUBSPOT_QUOTATION_STAGE_IDS: 'prod1,prod2,prod3',
   },
 };
 
