@@ -1,3 +1,5 @@
+import { WebhookEventType } from '@libs/odoo/enums';
+
 export type OdooWebhookEventName =
   | 'quotation_status_update'
   | 'invoice_created'
@@ -5,7 +7,8 @@ export type OdooWebhookEventName =
   | 'refund_credit_note'
   | 'payment_link_tabi_tamara'
   | 'product_create'
-  | 'product_update';
+  | 'product_update'
+  | 'payment_created';
 
 export const ODOO_WEBHOOK_EVENT_NAMES: OdooWebhookEventName[] = [
   'quotation_status_update',
@@ -90,4 +93,61 @@ export interface OdooInvoiceLine {
   quantity: number;
   price_unit: number;
   price_subtotal: number;
+}
+// New
+export interface WebhookLine {
+  default_code?: string;
+  price_subtotal?: number;
+  price_unit?: number;
+  product_id?: number;
+  product_name?: string;
+  quantity?: number;
+}
+
+// New
+export interface ReconciledInvoice {
+  invoice_reference?: string;
+  payment_state?: string;
+  residual_amount?: number;
+  total_amount?: number;
+}
+
+// New
+export interface OdooWebhookHandle {
+  // Common Fields
+  currency?: string;
+  event_type?: WebhookEventType;
+  lines?: WebhookLine[];
+  partner_email?: string;
+  partner_id?: number;
+  partner_name?: string;
+  partner_type?: string;
+  timestamp?: string;
+  total_amount?: number;
+
+  // Invoice Fields
+  due_date?: string;
+  invoice_date?: string;
+  invoice_reference?: string;
+  move_type?: string;
+  payment_state?: string;
+  residual_amount?: number;
+  state?: string;
+  tax_amount?: number;
+  untaxed_amount?: number;
+
+  // Quotation Fields
+  date_order?: string;
+  new_status?: string;
+  previous_status?: string;
+  quotation_reference?: string;
+
+  // Payment Fields
+  amount?: number;
+  journal?: string;
+  memo?: string;
+  payment_date?: string;
+  payment_reference?: string;
+  payment_type?: string;
+  reconciled_invoices?: ReconciledInvoice[];
 }

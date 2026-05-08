@@ -25,7 +25,7 @@ import { RequestType, RequestStatus, ResponseStatus, SourceType, QueueStatus, Qu
 import { AwsSqsProducerService } from '@libs/aws_sqs/producer.service';
 import { ConfigService } from '@nestjs/config';
 import { HubspotService } from '@modules/hubspot/hubspot.service';
-import { OdooWebhookDto } from './dto/odoo-webhook.dto';
+import { OdooWebhookDto, OdooWebhookHandleDto } from './dto/odoo-webhook.dto';
 import { SimplePublicObject } from '@hubspot/api-client/lib/codegen/crm/companies';
 
 @Injectable()
@@ -42,7 +42,7 @@ export class OdooService {
     private readonly hubService: HubspotService,
   ) {}
 
-  async handlingWebhook(eventName: string, body: OdooWebhookDto) {
+  async handlingWebhook(eventName: string, body: OdooWebhookDto | OdooWebhookHandleDto) {
     const method = this.handlingWebhook.name;
     const sqsUrl = this.configService.get<string>('AWS_Q1_QUEUE_URL') ?? '';
 
@@ -65,7 +65,7 @@ export class OdooService {
           sourceType: SourceType.ODOO,
           status: QueueStatus.QUEUED,
           event: eventName,
-          externalId: body?.invoice_id ?? body?.product_id ?? body?.quotation_id,
+          externalId: body?.['invoice_id'] ?? body?.['product_id'] ?? body?.['quotation_id'] ?? body.id,
         }),
       );
       await this.sqsProducerService.sendMessage(sqsUrl, record.jobId, payload, eventName);
@@ -465,6 +465,7 @@ export class OdooService {
         vals_list: [
           {
             email: email ?? '',
+            name: [properties?.properties?.firstname, properties?.properties?.lastname].filter(Boolean).join(' '),
             company_id: String(companyId ?? ''),
             autopost_bills: 'never',
             street: properties?.properties?.street ?? '',
@@ -477,7 +478,7 @@ export class OdooService {
 
     const mappedLines = (lineItems ?? [])
       .map((item) => {
-        const productId = Number(item?.properties?.odoo_product_id);
+        const productId = item?.properties?.odoo_product_id as unknown as number;
         if (!productId) return null;
         return {
           product_id: productId,
@@ -496,8 +497,8 @@ export class OdooService {
             partner_id: Number(contactId ?? 0),
             partner_shipping_id: Number(contactId ?? 0),
             partner_invoice_id: Number(contactId ?? 0),
-            warehouse_id: 1,
-            date_order: new Date().toISOString(),
+            warehouse_id: 0,
+            date_order: new Date().toISOString().replace('T', ' ').split('.')[0],
             order_line: mappedLines.map((line) => [
               0,
               0,

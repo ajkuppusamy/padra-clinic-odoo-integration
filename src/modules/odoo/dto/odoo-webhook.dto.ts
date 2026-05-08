@@ -1,6 +1,7 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { WebhookEventType } from '@libs/odoo/enums';
+import { ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsArray, IsBoolean, IsDateString, IsEmail, IsNumber, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { IsArray, IsBoolean, IsDateString, IsEmail, IsEnum, IsNumber, IsOptional, IsString, ValidateNested } from 'class-validator';
 
 export class BaseEventDto {
   @ApiPropertyOptional({
@@ -197,227 +198,221 @@ export class ProductEventDto extends PaymentLinkTabiTamaraEventDto {
 export class OdooWebhookDto extends ProductEventDto {}
 
 export class WebhookLineDto {
-  @ApiPropertyOptional({
-    example: '',
-    description: 'Product default code',
-  })
+  @ApiPropertyOptional({ example: '' })
   @IsOptional()
   @IsString()
   default_code?: string;
 
-  @ApiPropertyOptional({
-    example: 500,
-    description: 'Line subtotal amount',
-  })
+  @ApiPropertyOptional({ example: 1 })
   @IsOptional()
   @IsNumber()
   price_subtotal?: number;
 
-  @ApiPropertyOptional({
-    example: 500,
-    description: 'Unit price',
-  })
+  @ApiPropertyOptional({ example: 1 })
   @IsOptional()
   @IsNumber()
   price_unit?: number;
 
-  @ApiPropertyOptional({
-    example: 3,
-    description: 'Product ID',
-  })
+  @ApiPropertyOptional({ example: 395 })
   @IsOptional()
   @IsNumber()
   product_id?: number;
 
-  @ApiPropertyOptional({
-    example: 'Test Product',
-    description: 'Product name',
-  })
+  @ApiPropertyOptional({ example: 'BRAUN HAIR TRIMER' })
   @IsOptional()
   @IsString()
   product_name?: string;
 
-  @ApiPropertyOptional({
-    example: 1,
-    description: 'Product quantity',
-  })
+  @ApiPropertyOptional({ example: 1 })
   @IsOptional()
   @IsNumber()
   quantity?: number;
 }
 
-export class OdooEventWebhookDto {
-  @ApiPropertyOptional({
-    example: 'USD',
-    description: 'Currency code',
-  })
+// new
+export class ReconciledInvoiceDto {
+  @ApiPropertyOptional({ example: 'INV/2026/00004' })
+  @IsOptional()
+  @IsString()
+  invoice_reference?: string;
+
+  @ApiPropertyOptional({ example: 'in_payment' })
+  @IsOptional()
+  @IsString()
+  payment_state?: string;
+
+  @ApiPropertyOptional({ example: 1.15 })
+  @IsOptional()
+  @IsNumber()
+  residual_amount?: number;
+
+  @ApiPropertyOptional({ example: 1.15 })
+  @IsOptional()
+  @IsNumber()
+  total_amount?: number;
+}
+// new
+export class OdooWebhookEventDto {
+  @ApiPropertyOptional({ example: 'USD' })
   @IsOptional()
   @IsString()
   currency?: string;
 
-  @ApiPropertyOptional({
-    example: 'invoice_created',
-    description: 'Webhook event type',
-  })
+  @ApiPropertyOptional({ enum: WebhookEventType })
   @IsOptional()
-  @IsString()
-  event_type?: string; //invoice_created , quotation_status_update
+  @IsEnum(WebhookEventType)
+  event_type?: WebhookEventType;
 
-  @ApiPropertyOptional({
-    type: [WebhookLineDto],
-    description: 'Webhook line items',
-  })
+  @ApiPropertyOptional({ type: [WebhookLineDto] })
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => WebhookLineDto)
   lines?: WebhookLineDto[];
 
-  @ApiPropertyOptional({
-    example: 'user@example.com',
-    description: 'Partner email',
-  })
+  @ApiPropertyOptional({ example: 'user@example.com' })
   @IsOptional()
   @IsEmail()
   partner_email?: string;
 
-  @ApiPropertyOptional({
-    example: 20,
-    description: 'Partner ID',
-  })
+  @ApiPropertyOptional({ example: 29 })
   @IsOptional()
   @IsNumber()
   partner_id?: number;
 
-  @ApiPropertyOptional({
-    example: 'John Doe',
-    description: 'Partner name',
-  })
+  @ApiPropertyOptional({ example: 'Accountant' })
   @IsOptional()
   @IsString()
   partner_name?: string;
 
-  @ApiPropertyOptional({
-    example: '2026-05-07T06:54:23Z',
-    description: 'Webhook timestamp',
-  })
+  @ApiPropertyOptional({ example: 'customer' })
+  @IsOptional()
+  @IsString()
+  partner_type?: string;
+
+  @ApiPropertyOptional({ example: '2026-05-08T11:58:41Z' })
   @IsOptional()
   @IsDateString()
   timestamp?: string;
 
-  @ApiPropertyOptional({
-    example: 575,
-    description: 'Total amount',
-  })
+  @ApiPropertyOptional({ example: 1.15 })
   @IsOptional()
   @IsNumber()
   total_amount?: number;
 
-  // Invoice Fields
+  // Invoice
 
-  @ApiPropertyOptional({
-    example: '2026-05-07',
-    description: 'Invoice due date',
-  })
+  @ApiPropertyOptional({ example: '2026-05-08' })
   @IsOptional()
   @IsDateString()
   due_date?: string;
 
-  @ApiPropertyOptional({
-    example: '2026-05-18',
-    description: 'Invoice date',
-  })
+  @ApiPropertyOptional({ example: '2026-05-08' })
   @IsOptional()
   @IsDateString()
   invoice_date?: string;
 
-  @ApiPropertyOptional({
-    example: 'INV/2026/00002',
-    description: 'Invoice reference',
-  })
+  @ApiPropertyOptional({ example: 'INV/2026/00004' })
   @IsOptional()
   @IsString()
   invoice_reference?: string;
 
-  @ApiPropertyOptional({
-    example: 'out_invoice',
-    description: 'Move type',
-  })
+  @ApiPropertyOptional({ example: 'out_invoice' })
   @IsOptional()
   @IsString()
   move_type?: string;
 
-  @ApiPropertyOptional({
-    example: 'not_paid',
-    description: 'Payment state',
-  })
+  @ApiPropertyOptional({ example: 'not_paid' })
   @IsOptional()
   @IsString()
   payment_state?: string;
 
-  @ApiPropertyOptional({
-    example: 575,
-    description: 'Residual amount',
-  })
+  @ApiPropertyOptional({ example: 1.15 })
   @IsOptional()
   @IsNumber()
   residual_amount?: number;
 
-  @ApiPropertyOptional({
-    example: 'posted',
-    description: 'Invoice state',
-  })
+  @ApiPropertyOptional({ example: 'posted' })
   @IsOptional()
   @IsString()
   state?: string;
 
-  @ApiPropertyOptional({
-    example: 75,
-    description: 'Tax amount',
-  })
+  @ApiPropertyOptional({ example: 0.15 })
   @IsOptional()
   @IsNumber()
   tax_amount?: number;
 
-  @ApiPropertyOptional({
-    example: 500,
-    description: 'Untaxed amount',
-  })
+  @ApiPropertyOptional({ example: 1 })
   @IsOptional()
   @IsNumber()
   untaxed_amount?: number;
 
-  // Quotation Fields
+  // Quotation
 
-  @ApiPropertyOptional({
-    example: '2026-05-07T06:46:42',
-    description: 'Quotation order date',
-  })
+  @ApiPropertyOptional({ example: '2026-05-08T11:58:21' })
   @IsOptional()
   @IsDateString()
   date_order?: string;
 
-  @ApiPropertyOptional({
-    example: 'sale',
-    description: 'New quotation status',
-  })
+  @ApiPropertyOptional({ example: 'sale' })
   @IsOptional()
   @IsString()
   new_status?: string;
 
-  @ApiPropertyOptional({
-    example: 'draft',
-    description: 'Previous quotation status',
-  })
+  @ApiPropertyOptional({ example: 'draft' })
   @IsOptional()
   @IsString()
   previous_status?: string;
 
-  @ApiPropertyOptional({
-    example: 'S00016',
-    description: 'Quotation reference',
-  })
+  @ApiPropertyOptional({ example: 'S00021' })
   @IsOptional()
   @IsString()
   quotation_reference?: string;
+
+  // Payment
+
+  @ApiPropertyOptional({ example: 1.15 })
+  @IsOptional()
+  @IsNumber()
+  amount?: number;
+
+  @ApiPropertyOptional({ example: 'Bank' })
+  @IsOptional()
+  @IsString()
+  journal?: string;
+
+  @ApiPropertyOptional({ example: 'INV/2026/00004' })
+  @IsOptional()
+  @IsString()
+  memo?: string;
+
+  @ApiPropertyOptional({ example: '2026-05-08' })
+  @IsOptional()
+  @IsDateString()
+  payment_date?: string;
+
+  @ApiPropertyOptional({ example: 'PAY00011' })
+  @IsOptional()
+  @IsString()
+  payment_reference?: string;
+
+  @ApiPropertyOptional({ example: 'inbound' })
+  @IsOptional()
+  @IsString()
+  payment_type?: string;
+
+  @ApiPropertyOptional({ type: [ReconciledInvoiceDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ReconciledInvoiceDto)
+  reconciled_invoices?: ReconciledInvoiceDto[];
+
+  @ApiPropertyOptional({ example: '1' })
+  @IsOptional()
+  @IsString()
+  @IsNumber()
+  id?: number | string;
 }
+// new
+export class OdooWebhookHandleDto extends PartialType(OdooWebhookEventDto) {}
