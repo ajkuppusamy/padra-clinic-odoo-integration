@@ -281,7 +281,7 @@ export class IntegrationService {
     // const { odoo_invoice_id, odoo_quotation_id } = (await this.hubspotService.fetchInvoiceById(jobId, invoiceId)).properties;
     const invoice = await this.hubspotService.processInvoice(
       jobId,
-      { invoice_id: event?.invoice_id ?? invoiceId ?? '', quotation_id: event.quotation_id ?? '' },
+      { invoice_id: event?.invoice_id ?? invoiceId ?? '', quotation_id: event?.quotation_id ?? event?.order_id ?? '' },
       deal,
       lineItems,
       contacts,
@@ -415,36 +415,38 @@ export class IntegrationService {
     return searchCompany[0]?.id;
   }
 
-  private async handleOdooInvoiceUpsertProcess(
-    jobId: string,
-    deal: SimplePublicObject,
-    lineItems: SimplePublicObject[],
-    odooContactId: string,
-    odoocompanyId: string,
-    odooQuoteId: number,
-    hubspotContact: SimplePublicObject,
-  ) {
+  private async handleOdooInvoiceUpsertProcess(jobId: string, deal: SimplePublicObject, lineItems: SimplePublicObject[], odooQuoteId: number, hubspotContact: SimplePublicObject) {
     this.logger.log(`[handleOnlinePayment] Converting quotation to invoice`, {
       jobId,
       odooQuoteId,
     });
-    const invoiceCreatePayload = (await this.odooService.buildOdooObjectSearchPayload(deal, odoocompanyId, true, 'invoice', odooContactId, lineItems, odooQuoteId)) as any;
-    const invoiceRecord = await this.odooService.searchInvoiceCreate(jobId, invoiceCreatePayload, 'invoice');
-    const invoiceConvert = (await this.odooService.buildOdooObjectSearchPayload(
-      deal,
-      undefined,
-      true,
-      'invoice_cvt',
-      undefined,
-      undefined,
-      odooQuoteId,
-      invoiceRecord?.[0],
-    )) as QuoteCvtInvoice;
-    const odooInvoice = await this.odooService.searchQuoteCvtInvoice(jobId, invoiceConvert, 'quotation_id');
-    if (!odooInvoice) return await this.handleSkip(jobId, `${this.handleOdooInvoiceUpsertProcess.name}`, 'Odoo Invoice convert failed');
 
+    const invoiceCreation = await this.odooService.searchPaymentInvoiceCreate(
+      jobId,
+      {
+        vals_list: [
+          {
+            advance_payment_method: 'delivered',
+            sale_order_ids: [odooQuoteId],
+          },
+        ],
+      },
+      'advance_payment_method',
+    );
+
+    if (!invoiceCreation.length) return await this.handleSkip(jobId, `${this.handleOdooInvoiceUpsertProcess.name}`, 'Invoice convert failed');
+
+    const validateInvoice = await this.odooService.searchPaymentInvoiceValidate(
+      jobId,
+      {
+        ids: [invoiceCreation?.[0]],
+      },
+      'id',
+    );
+
+    if (!validateInvoice) return await this.handleSkip(jobId, `${this.handleOdooInvoiceUpsertProcess.name}`, 'Invoice create validation failed');
     /** Create hubspot invoice and associate with deal */
-    const createInvoice = await this.hubspotService.processInvoice(jobId, { quotation_id: String(odooQuoteId), invoice_id: String(odooInvoice?.[0]) }, deal, lineItems, [
+    const createInvoice = await this.hubspotService.processInvoice(jobId, { quotation_id: String(odooQuoteId), invoice_id: invoiceCreation?.[0]?.toString() }, deal, lineItems, [
       hubspotContact,
     ]);
 
@@ -517,11 +519,14 @@ export class IntegrationService {
       if (!orderLines.length) return await this.handleSkip(jobId, context, 'Invalid Line Items Or No Odoo Product Id');
       const quotation = await this.odooService.searchSaleOrderCreation(jobId, quote, 'odoo_quotation_id');
 
-      this.logger.log(`[${context}] Quotation created`, {
+      if (!quotation.length) return await this.handleSkip(jobId, context, 'Odoo Sales Order creation failed ');
+      this.logger.verbose(`[${context}] Quotation created`, {
         jobId,
         quotationId: quotation?.[0],
       });
       this.logger.verbose(`Payment Method : ${deal?.properties?.payment_method}`);
+      const confirmStatus = (await this.odooService.searchSaleOrderConformation(jobId, { ids: [quotation?.[0]], context: {} }, 'state')) as unknown as boolean;
+      this.logger.verbose(`Sales order Status : ${confirmStatus}`);
 
       let hsOwner;
       if (deal?.properties?.hubspot_owner_id) {
@@ -543,7 +548,7 @@ export class IntegrationService {
       if (isOffline) {
         await this.handleOfflineFlow(jobId, quoteId.id as string, { quotation_id: String(quotation[0]) });
       } else {
-        await this.handleOdooInvoiceUpsertProcess(jobId, deal, lineItems, String(odooContactId), String(companyId), quotation?.[0], primaryContact);
+        await this.handleOdooInvoiceUpsertProcess(jobId, deal, lineItems, quotation?.[0], primaryContact);
       }
       await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
 

@@ -27,7 +27,7 @@ export interface InvoiceIds {
 }
 
 export interface ValsList {
-  vals_list: SalesOrder[] | Contact[] | Invoice[];
+  vals_list: SalesOrder[] | Contact[] | Invoice[] | unknown[];
 }
 
 export interface Contact {
@@ -48,6 +48,7 @@ export interface SalesOrder {
   partner_invoice_id: number;
   warehouse_id?: number;
   order_line: [number, number, OrderLine][];
+  state: string;
 }
 
 export interface OrderLine {
