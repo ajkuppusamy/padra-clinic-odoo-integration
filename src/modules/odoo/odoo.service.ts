@@ -251,6 +251,7 @@ export class OdooService {
       domain: [['company_id', '=', companyId]] as any,
       fields: ['id', 'name', 'display_name', 'list_price', 'company_id', 'base_unit_price'],
     };
+    delete productPayload.fields;
 
     await this.searchProductByCompanyId(jobId, productPayload, 'company_id');
 
