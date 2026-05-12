@@ -305,8 +305,8 @@ export class OdooService {
 
   async searchProductByCompanyId(jobId: string, payload: SearchReadParams, property: string) {
     try {
-      return await this.executeTrackedRequest(jobId, RequestType.SEARCH, property, 'product.template/read', 'POST', payload, () =>
-        this.odooLibService.search(payload, '/product.template/read'),
+      return await this.executeTrackedRequest(jobId, RequestType.SEARCH, property, 'product.template/search_read', 'POST', payload, () =>
+        this.odooLibService.search(payload, '/product.template/search_read'),
       );
     } catch (error: any) {
       const message = (error?.message || '').toLowerCase();
