@@ -54,9 +54,10 @@ export class AwsSqsConsumerService {
           await this.integrationService.handlingPaymentCreateEvent(jobId, data);
           break;
         case 'invoice_created':
-          // await this.integrationService.handlingInvoiceCreated(jobId, data);
+          await this.integrationService.handlingInvoiceCreated(jobId, data);
           break;
         case 'quotation_status_update':
+          await await this.integrationService.handlingInvoiceCreated(jobId, data);
           await this.integrationService.handlingQuotaionStatus(jobId, data);
           break;
 

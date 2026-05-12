@@ -217,11 +217,9 @@ export class IntegrationService {
   }
 
   private async getInvoiceId(jobId: string, event: PaymentCreatedEvent, context: string): Promise<string> {
-    const invoiceId = await this.hubspotService.fetchInVoiceByOdooInVoiceId(jobId, event?.invoice_id);
+    const invoiceId = await this.hubspotService.fetchInVoiceByOdooInVoiceId(jobId, event?.invoice_id as unknown as string);
 
-    if (!invoiceId) {
-      await this.handleSkip(jobId, context, 'Invoice Not Found Or Search Api Failure');
-    }
+    if (!invoiceId) await this.handleSkip(jobId, context, 'Invoice Not Found Or Search Api Failure');
 
     return invoiceId as string;
   }
@@ -245,7 +243,7 @@ export class IntegrationService {
     const odooTotalPaymentDone = deal?.propertiesWithHistory?.odoo_payment_amount?.map((opa) => Number(opa?.value ?? '0'))?.reduce((p, v) => p + v, 0);
 
     const totalAmount = amount;
-    const paidAmount = event?.amount_paid ?? event?.['amount'];
+    const paidAmount = event?.amount_paid ?? (event?.amount as number);
 
     const payload: Record<string, any> = {
       odoo_payment_amount: paidAmount,
@@ -323,29 +321,44 @@ export class IntegrationService {
     this.logger.debug(`[${context}] Completed`, { jobId });
   }
 
-  public async handlingInvoiceCreated(jobId: string, event: InvoiceCreatedEvent, eventName?: string): Promise<void> {
+  public async handlingInvoiceCreated(jobId: string, event: InvoiceCreatedEvent, eventName?: string, isCompleted?: boolean): Promise<void> {
     this.logger.debug(`${this.handleInvoiceProcess.name} : ${eventName}`);
     const context = this.handlingInvoiceCreated.name;
 
-    if (!event.quotation_id) return await this.handleSkip(jobId, context, `Quotation id not found Existing Invoice Id : ${event.invoice_id}`);
-    const quoteId = await this.hubspotService.fetchQuoteByOdooQuoteId(jobId, event.quotation_id as string);
-    if (!quoteId) return await this.handleSkip(jobId, context, `Quotation id : ${event.quotation_id} Quote Not Found`);
+    // Prefer order_id first, fallback to quotation_id
+    const referenceId = event.order_id || event.quotation_id;
+
+    if (!referenceId) return await this.handleSkip(jobId, context, `Order id / Quotation id not found Existing Invoice Id : ${event.invoice_id}`);
+
+    const quoteId = await this.hubspotService.fetchQuoteByOdooQuoteId(jobId, referenceId);
+
+    if (!quoteId) return await this.handleSkip(jobId, context, `Reference id : ${referenceId} Quote Not Found`);
+
     const dealId = await this.hubspotService.fetchAssociatedDealIdByQuoteId(quoteId as string, jobId);
-    if (!dealId) return await this.handleSkip(jobId, context, `Quotation id : ${event.quotation_id} Not Associated deal Or Deal Not Found`);
+
+    if (!dealId) return await this.handleSkip(jobId, context, `Reference id : ${referenceId} Deal Not Associated / Not Found`);
+
     const { deal, contacts, lineItems } = await this.hubspotService.getDealDetails(dealId, jobId);
-    const isAlreadyExistDeal = await this.hubspotService.fetchAssociatedDealIdByInVoiceId(event?.invoice_id, jobId);
-    if (isAlreadyExistDeal) return await this.handleSkip(jobId, context, `: ${event.invoice_id} - invoice already create invoice and associated with deal - ${isAlreadyExistDeal}`);
+
+    const isAlreadyExistDeal = await this.hubspotService.fetchAssociatedDealIdByInVoiceId(event?.invoice_id as string, jobId);
+
+    if (isAlreadyExistDeal) return await this.handleSkip(jobId, context, `${event.invoice_id} - invoice already created and associated with deal - ${isAlreadyExistDeal}`);
+
     await this.handleInvoiceProcess(jobId, deal, event, event.invoice_id, contacts ?? [], lineItems ?? []);
-    await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
+
+    if (isCompleted) await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
 
     this.logger.debug(`[${context}] Completed`, { jobId });
   }
 
   private quoteStatusMapping(status: string): string {
     const mapping: Record<string, string> = {
+      draft: 'DRAFT', // Quotation
+      sent: 'PENDING_APPROVAL', // Quotation Sent
+      sale: 'APPROVED', // Sales Order
       confirmed: 'APPROVED',
       done: 'APPROVED',
-      cancel: 'REJECTED',
+      cancel: 'REJECTED', // Cancelled
     };
 
     return mapping[status] || 'DRAFT';
@@ -355,19 +368,28 @@ export class IntegrationService {
     this.logger.debug(`${this.handlingQuotaionStatus.name} : ${eventName}`);
     const context = this.handlingQuotaionStatus.name;
 
-    if (!event.quotation_id) return await this.handleSkip(jobId, context, `Quotation id not found  Status: ${event.new_status}`);
-    const quoteId = await this.hubspotService.fetchQuoteByOdooQuoteId(jobId, event.quotation_id as string);
-    if (!quoteId) return await this.handleSkip(jobId, context, `Quotation id : ${event.quotation_id} Quote Not Found`);
+    // Prefer order_id first, fallback to quotation_id
+    const referenceId = String(event?.order_id) || String(event?.quotation_id);
+
+    if (!referenceId) return await this.handleSkip(jobId, context, `Order id / Quotation id not found Status: ${event.new_status}`);
+
+    const quoteId = await this.hubspotService.fetchQuoteByOdooQuoteId(jobId, referenceId);
+
+    if (!quoteId) return await this.handleSkip(jobId, context, `Reference id : ${referenceId} Quote Not Found`);
 
     if (event.new_status) {
-      const status = this.quoteStatusMapping(event?.new_status);
+      const status = this.quoteStatusMapping(event.new_status);
+
+      const portalId = await this.configService.get<string>('HUBSPOT_PORTAL_ID');
+
       await this.hubspotService.updateQuoteById(jobId, quoteId, {
         hs_status: status,
         hs_template_type: 'CUSTOMIZABLE_QUOTE_TEMPLATE',
-        hs_slug: event.quotation_id,
-        hs_domain: '342994076.hs-sites-na3.com',
+        hs_slug: referenceId,
+        hs_domain: `${portalId}.hs-sites-na3.com`,
       });
-      //TODO: Require to update the quote template based on client requirement.
+
+      // TODO: Update quote template based on client requirement
     }
 
     await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);

@@ -413,6 +413,26 @@ export class OdooWebhookEventDto {
   @IsString()
   @IsNumber()
   id?: number | string;
+
+  @ApiPropertyOptional({ example: '1' })
+  @IsOptional()
+  @IsNumber()
+  payment_id?: number;
+
+  @ApiPropertyOptional({ example: '1' })
+  @IsOptional()
+  @IsNumber()
+  order_id?: number;
+
+  @ApiPropertyOptional({ example: '1' })
+  @IsOptional()
+  @IsNumber()
+  invoice_id?: number;
+
+  @ApiPropertyOptional({ example: '1' })
+  @IsOptional()
+  @IsNumber()
+  quoation_id?: number;
 }
 // new
 export class OdooWebhookHandleDto extends PartialType(OdooWebhookEventDto) {}
