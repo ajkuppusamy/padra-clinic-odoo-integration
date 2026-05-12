@@ -446,10 +446,12 @@ export class OdooService {
     properties: SimplePublicObject,
     companyId?: number | string,
     isWrite = false,
-    object?: 'contacts' | 'deals' | 'invoice',
+    object?: 'contacts' | 'deals' | 'invoice' | 'invoice_cvt',
     contactId?: number | string,
     lineItems?: SimplePublicObject[],
-  ): Promise<ValsList | SearchReadParams> {
+    odooQuoteId?: number,
+    odooInvoiceId?: string | number,
+  ): Promise<ValsList | SearchReadParams | QuoteCvtInvoice> {
     const email = properties?.properties?.email;
     const pipeline = properties?.properties?.pipeline;
     this.logger.debug(`email -${email} , pipeline: ${pipeline}`);
@@ -498,7 +500,7 @@ export class OdooService {
             partner_id: Number(contactId ?? 0),
             partner_shipping_id: Number(contactId ?? 0),
             partner_invoice_id: Number(contactId ?? 0),
-            warehouse_id: 0,
+            // warehouse_id: 1,
             date_order: new Date().toISOString().replace('T', ' ').split('.')[0],
             order_line: mappedLines.map((line) => [
               0,
@@ -538,6 +540,14 @@ export class OdooService {
       };
     }
 
+    if (object === 'invoice_cvt') {
+      return {
+        ids: [odooQuoteId as number],
+        vals: {
+          invoice_ids: [odooInvoiceId as number],
+        },
+      };
+    }
     throw new Error('Invalid payload configuration');
   }
 

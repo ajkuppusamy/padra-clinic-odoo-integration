@@ -46,7 +46,7 @@ export interface SalesOrder {
   company_id: number;
   partner_shipping_id: number;
   partner_invoice_id: number;
-  warehouse_id: number;
+  warehouse_id?: number;
   order_line: [number, number, OrderLine][];
 }
 
