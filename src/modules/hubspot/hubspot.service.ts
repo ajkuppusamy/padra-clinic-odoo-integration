@@ -627,7 +627,7 @@ export class HubspotService {
 
         try {
           const response = await this.hubspotLibService.createHubspotObject(HubspotObjects.LINE_ITEMS, properties);
-
+          await this.hubspotLibService.updateHubspotObject(HubspotObjects.DEALS, dealId, { line_items_created: 'true' });
           return { success: true, data: response };
         } catch (error: any) {
           return {
