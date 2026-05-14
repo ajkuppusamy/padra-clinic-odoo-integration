@@ -28,6 +28,7 @@ export class AwsSqsConsumerService {
   @SqsMessageHandler(process.env.AWS_Q1_QUEUE_NAME as unknown as string, false)
   async sqsMessageHandler(message: Message): Promise<void> {
     try {
+      await new Promise((resolve) => setTimeout(resolve, 3000));
       this.logger.debug(`Message received from AWS SQS, ${JSON.stringify(message)}`);
 
       const body: any = JSON.parse((message?.['body'] ?? message?.['Body']) || '{}');
