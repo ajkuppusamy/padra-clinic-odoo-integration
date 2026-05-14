@@ -5,6 +5,7 @@ import { catchError, retry } from 'rxjs/operators';
 import PQueue from 'p-queue';
 import { OdooConfigService } from './config/odoo.config';
 import {
+  BaseSearch,
   CashPaymentRequest,
   CompanySearchResponse,
   ContactSearchResponse,
@@ -491,7 +492,10 @@ export class OdooService {
    * @returns {Promise<ContactSearchResponse>} Promise resolving to search results
    * @throws {HttpException} When API error occurs
    */
-  async search(search: Partial<SearchReadParams | ValsList>, path: string): Promise<ContactSearchResponse[] | Product[] | number[] | CompanySearchResponse[] | boolean> {
-    return await this.request<ContactSearchResponse[] | Product[] | number[] | CompanySearchResponse[] | boolean>('POST', path, search, this.getSearchHeaders());
+  async search(
+    search: Partial<SearchReadParams | ValsList>,
+    path: string,
+  ): Promise<ContactSearchResponse[] | Product[] | number[] | CompanySearchResponse[] | boolean | BaseSearch[]> {
+    return await this.request<ContactSearchResponse[] | Product[] | number[] | CompanySearchResponse[] | boolean | BaseSearch[]>('POST', path, search, this.getSearchHeaders());
   }
 }

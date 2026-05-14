@@ -40,16 +40,8 @@ export class AwsSqsConsumerService {
 
       switch (eventName) {
         case 'deal_update':
-          //await this.integrationService.dealExecutionProcess(data?.objectId, jobId);
           await this.integrationService.odooSalesOrderExecution(data?.objectId, jobId);
           break;
-
-        // case 'product_create':
-        //   await this.integrationService.handlingProductProcess(jobId, data);
-        //   break;
-        // case 'product_update':
-        //   await this.integrationService.handlingProductProcess(jobId, data);
-        //   break;
         case 'payment_created':
           await this.integrationService.handlingPaymentCreateEvent(jobId, data);
           break;

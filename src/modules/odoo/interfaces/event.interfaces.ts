@@ -95,6 +95,7 @@ export interface PaymentCreatedEvent {
   // new webhook fields
   amount?: number;
   event_type?: string;
+  invoice_ids?: string | number[];
   journal?: string;
   memo?: string;
   partner_id?: number;

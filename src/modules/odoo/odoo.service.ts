@@ -20,12 +20,13 @@ import {
   QuoteCvtInvoice,
   InvoiceLineId,
   Invoice,
+  BaseSearch,
 } from '@libs/odoo/interfaces';
 import { RequestType, RequestStatus, ResponseStatus, SourceType, QueueStatus, QueueType, Response } from '@common/entities';
 import { AwsSqsProducerService } from '@libs/aws_sqs/producer.service';
 import { ConfigService } from '@nestjs/config';
 import { HubspotService } from '@modules/hubspot/hubspot.service';
-import { OdooWebhookDto, OdooWebhookHandleDto } from './dto/odoo-webhook.dto';
+import { OdooWebhookHandleDto } from './dto/odoo-webhook.dto';
 import { SimplePublicObject } from '@hubspot/api-client/lib/codegen/crm/companies';
 
 @Injectable()
@@ -42,7 +43,7 @@ export class OdooService {
     private readonly hubService: HubspotService,
   ) {}
 
-  async handlingWebhook(eventName: string, body: OdooWebhookDto | OdooWebhookHandleDto) {
+  async handlingWebhook(eventName: string, body: OdooWebhookHandleDto) {
     const method = this.handlingWebhook.name;
     const sqsUrl = this.configService.get<string>('AWS_Q1_QUEUE_URL') ?? '';
 
@@ -442,7 +443,7 @@ export class OdooService {
     );
   }
 
-  async buildOdooObjectSearchPayload(
+  async buildOdooObjectPayload(
     properties: SimplePublicObject,
     companyId?: number | string,
     isWrite = false,
@@ -551,64 +552,64 @@ export class OdooService {
     throw new Error('Invalid payload configuration');
   }
 
-  async searchSaleOrderCreation(jobId: string, properties: ValsList, property: string): Promise<number[]> {
+  async saleOrderCreation(jobId: string, properties: ValsList, property: string): Promise<number[]> {
     return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/sale.order/create', 'POST', properties, () =>
       this.odooLibService.search(properties, '/sale.order/create'),
     ) as unknown as number[];
   }
 
-  async searchSaleOrderConformation(jobId: string, properties: {}, property: string): Promise<number[]> {
+  async saleOrderRead(jobId: string, properties: {}, property: string): Promise<BaseSearch[]> {
+    return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/sale.order/read', 'POST', properties, () =>
+      this.odooLibService.search(properties, '/sale.order/read'),
+    ) as unknown as BaseSearch[];
+  }
+
+  async saleOrderConformation(jobId: string, properties: {}, property: string): Promise<number[]> {
     return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/sale.order/action_confirm', 'POST', properties, () =>
       this.odooLibService.search(properties, '/sale.order/action_confirm'),
     ) as unknown as number[];
   }
 
-  async searchSaleOrderWrite(jobId: string, properties: SearchSalesOrderWrite, property: string): Promise<boolean> {
+  async saleOrderWrite(jobId: string, properties: SearchSalesOrderWrite, property: string): Promise<boolean> {
     return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/sale.order/write', 'POST', properties, () =>
       this.odooLibService.search(properties, '/sale.order/write'),
     ) as unknown as boolean;
   }
 
-  async searchContactWrite(jobId: string, properties: ValsList, property: string): Promise<number[]> {
+  async partnerCreate(jobId: string, properties: ValsList, property: string): Promise<number[]> {
     return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/res.partner/create', 'POST', properties, () =>
       this.odooLibService.search(properties, '/res.partner/create'),
     ) as unknown as number[];
   }
 
-  async searchContactRead(jobId: string, properties: SearchReadParams, property: string): Promise<ContactSearchResponse[]> {
+  async partnerSearch(jobId: string, properties: SearchReadParams, property: string): Promise<ContactSearchResponse[]> {
     return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/res.partner/search_read', 'POST', properties, () =>
       this.odooLibService.search(properties, '/res.partner/search_read'),
     ) as unknown as ContactSearchResponse[];
   }
 
-  async searchCompanyRead(jobId: string, properties: SearchReadParams, property: string): Promise<CompanySearchResponse[]> {
+  async companySearch(jobId: string, properties: SearchReadParams, property: string): Promise<CompanySearchResponse[]> {
     return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/res.company/search_read', 'POST', properties, () =>
       this.odooLibService.search(properties, '/res.company/search_read'),
     ) as unknown as CompanySearchResponse[];
   }
 
-  async searchInvoiceCreate(jobId: string, properties: ValsList, property: string): Promise<number[]> {
+  async accountInvoiceCreate(jobId: string, properties: ValsList, property: string): Promise<number[]> {
     return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/account.move/create', 'POST', properties, () =>
       this.odooLibService.search(properties, '/account.move/create'),
     ) as unknown as number[];
   }
 
-  async searchPaymentInvoiceCreate(jobId: string, properties: ValsList, property: string): Promise<number[]> {
+  async paymentInvoiceCreate(jobId: string, properties: ValsList, property: string): Promise<number[]> {
     return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/sale.advance.payment.inv/create', 'POST', properties, () =>
       this.odooLibService.search(properties, '/sale.advance.payment.inv/create'),
     ) as unknown as number[];
   }
 
-  async searchPaymentInvoiceValidate(jobId: string, properties: ValsList | {}, property: string): Promise<number[]> {
+  async paymentInvoiceValidate(jobId: string, properties: ValsList | {}, property: string): Promise<number[]> {
     return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/sale.advance.payment.inv/create_invoices', 'POST', properties, () =>
       this.odooLibService.search(properties, '/sale.advance.payment.inv/create_invoices'),
     ) as unknown as number[];
-  }
-
-  async searchQuoteCvtInvoice(jobId: string, properties: QuoteCvtInvoice, property: string): Promise<boolean> {
-    return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/sale.order/write', 'POST', properties, () =>
-      this.odooLibService.search(properties, '/sale.order/write'),
-    ) as unknown as boolean;
   }
 
   private async executeTrackedRequest<T>(

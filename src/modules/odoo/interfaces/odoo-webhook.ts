@@ -14,9 +14,9 @@ export const ODOO_WEBHOOK_EVENT_NAMES: OdooWebhookEventName[] = [
   'quotation_status_update',
   'invoice_created',
   'payment_created',
-  'payment_link_tabi_tamara',
-  'product_create',
-  'product_update',
+  // 'payment_link_tabi_tamara',
+  // 'product_create',
+  // 'product_update',
 ] as const;
 
 export function isValidOdooEventName(eventName: string): eventName is OdooWebhookEventName {
