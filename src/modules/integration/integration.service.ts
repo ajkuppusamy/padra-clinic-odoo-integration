@@ -373,6 +373,7 @@ export class IntegrationService {
 
     if (!referenceId) return await this.handleSkip(jobId, context, `Order id / Quotation id not found Status: ${event.new_status}`);
 
+    await new Promise((resolve) => setTimeout(resolve, 3000));
     const quoteId = await this.hubspotService.fetchQuoteByOdooQuoteId(jobId, referenceId);
 
     if (!quoteId) return await this.handleSkip(jobId, context, `Reference id : ${referenceId} Quote Not Found`);
