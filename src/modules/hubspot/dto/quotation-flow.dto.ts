@@ -42,15 +42,3 @@ export class Quotation {
   @IsNumber()
   quoteId?: number;
 }
-
-export class CreateQuoteDto {
-  @ApiProperty({ example: '67890' })
-  @IsString()
-  dealOwnerId!: string;
-
-  @ApiProperty({ example: [101, 102, 103] })
-  @IsArray()
-  @Type(() => Number)
-  @IsNumber({}, { each: true })
-  lineItemIds!: number[];
-}

@@ -19,6 +19,17 @@ export const HUBSPOT_OBJECT_PROPERTIES: Record<string, string[]> = {
     'payment_method', // custom
     'total_amount_paid', // custom
     'line_items_created', // custom
+    'sessions_completed', // custom
+    'number_of_sessions', // custom
+    'service_type', // custom
+    'treatment_category', // custom
+    'hs_mrr', // native
+    'hubspot_owner_id', // native
+    'call_center_deal_owner', // custom
+    'number_of_hairs___cloned_', // custom
+    'discount_amount', // custom
+    'number_of_hairs', // custom
+    'service_type', // custom
   ],
 
   line_items: ['name', 'quantity', 'price', 'amount', 'hs_product_id', 'createdate', 'hs_object_id', 'odoo_product_id'],

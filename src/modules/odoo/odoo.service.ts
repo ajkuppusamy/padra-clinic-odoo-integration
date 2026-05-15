@@ -14,15 +14,12 @@ import {
   UpdateProductRequest,
   CompanySearchResponse,
   SearchSalesOrderWrite,
-  Contact,
-  SalesOrder,
-  OrderLine,
   QuoteCvtInvoice,
-  InvoiceLineId,
-  Invoice,
   BaseSearch,
 } from '@libs/odoo/interfaces';
-import { RequestType, RequestStatus, ResponseStatus, SourceType, QueueStatus, QueueType, Response } from '@common/entities';
+import { getSaleServiceTypeValue } from '@libs/odoo/config/service-type.config';
+import { getTreatmentCategoryValue } from '@libs/odoo/config/treatment-category.config';
+import { RequestType, RequestStatus, ResponseStatus, SourceType, QueueStatus, QueueType } from '@common/entities';
 import { AwsSqsProducerService } from '@libs/aws_sqs/producer.service';
 import { ConfigService } from '@nestjs/config';
 import { HubspotService } from '@modules/hubspot/hubspot.service';
@@ -448,7 +445,7 @@ export class OdooService {
     companyId?: number | string,
     isWrite = false,
     object?: 'contacts' | 'deals' | 'invoice' | 'invoice_cvt',
-    contactId?: number | string,
+    { contactId, deal_owner_id, call_centre_deal_owner_id }: { contactId?: number; deal_owner_id?: number; call_centre_deal_owner_id?: number } = {},
     lineItems?: SimplePublicObject[],
     odooQuoteId?: number,
     odooInvoiceId?: string | number,
@@ -494,9 +491,28 @@ export class OdooService {
       .filter(Boolean);
 
     if (object === 'deals') {
+      const serviceType = properties?.properties?.service_type as string;
+      const treatmentCategory = properties?.properties?.treatment_category as string;
+      const sale_service_type_id = getSaleServiceTypeValue(serviceType);
+      const sale_treatment_category_id = getTreatmentCategoryValue(treatmentCategory);
+      const isOdooPropertymap = (await this.configService.get<string>('IS_ODOO_PROPERTY_MAP'))?.toLowerCase() === 'true';
+      const dealProperties = isOdooPropertymap
+        ? {
+            sale_service_type_id,
+            sale_treatment_category_id,
+            smr_amount_discount: Number(properties?.properties?.discount_amount ?? 0),
+            no_of_hairs: Number(properties?.properties?.number_of_hairs ?? properties?.properties?.number_of_hairs___cloned_ ?? 0),
+            session: Number(properties?.properties?.number_of_sessions ?? 0),
+            sessions_completed: Number(properties?.properties?.sessions_completed ?? 0),
+            deal_owner_id,
+            call_centre_deal_owner_id,
+          }
+        : {};
+
       return {
         vals_list: [
           {
+            ...dealProperties,
             company_id: Number(companyId ?? 0),
             partner_id: Number(contactId ?? 0),
             partner_shipping_id: Number(contactId ?? 0),

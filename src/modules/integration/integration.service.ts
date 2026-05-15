@@ -3,7 +3,7 @@ import { QueueRepository } from '@common/repositories';
 import { toHubspotDateValue } from '@common/utils';
 import { SimplePublicObject, SimplePublicObjectWithAssociations } from '@hubspot/api-client/lib/codegen/crm/companies';
 import { PublicOwner } from '@hubspot/api-client/lib/codegen/crm/owners/models/all';
-import { CreateQuotationResponse, QuoteCvtInvoice, SalesOrder, SearchReadParams, ValsList } from '@libs/odoo/interfaces';
+import { ContactSearchResponse, CreateQuotationResponse, QuoteCvtInvoice, SalesOrder, SearchReadParams, ValsList } from '@libs/odoo/interfaces';
 import { PaymentMethod } from '@modules/hubspot/dto/quotation-flow.dto';
 import { HubspotService } from '@modules/hubspot/hubspot.service';
 import { InvoiceCreatedEvent, PaymentCreatedEvent, ProductCreateEvent, ProductUpdateEvent, QuotationStatusUpdateEvent } from '@modules/odoo/interfaces/event.interfaces';
@@ -490,6 +490,10 @@ export class IntegrationService {
     this.logger.log(`[${context}] Started`, { jobId, dealId });
 
     try {
+      let hsOwner: Partial<PublicOwner> = {};
+      let callCenterOwner: Partial<PublicOwner> = {};
+      let dealOwnerPartner: Partial<ContactSearchResponse> = [];
+      let callCenterDealOwnerPartner: Partial<ContactSearchResponse> = [];
       const { deal, contacts, lineItems } = await this.hubspotService.getDealDetails(dealId, jobId);
 
       this.logger.log(`[${context}] Deal data fetched`, {
@@ -528,9 +532,28 @@ export class IntegrationService {
 
       this.logger.debug(`total Line Items: ${lineItems.length}`);
       if (!lineItems.length) return await this.handleSkip(jobId, context, 'No Associated LinItems');
+      if (deal?.properties?.hubspot_owner_id) hsOwner = await this.hubspotService.fetchOwnerById(jobId, deal?.properties?.hubspot_owner_id as string);
+      if (deal?.properties?.call_center_deal_owner) callCenterOwner = await this.hubspotService.fetchOwnerById(jobId, deal?.properties?.call_center_deal_owner as string);
 
-      const quote = (await this.odooService.buildOdooObjectPayload(deal, String(companyId), true, 'deals', odooContactId, lineItems)) as ValsList;
-      const salesOrder = quote?.vals_list[0] as SalesOrder;
+      if (hsOwner?.email) await this.odooService.partnerSearch(jobId, { domain: [['email', 'ilike', hsOwner.email]], fields: ['id', 'display_name', 'email'] }, 'email');
+
+      if (callCenterOwner?.email) {
+        callCenterDealOwnerPartner = await this.odooService.partnerSearch(
+          jobId,
+          { domain: [['email', 'ilike', callCenterOwner.email]], fields: ['id', 'display_name', 'email'] },
+          'email',
+        );
+      }
+      const quote = (await this.odooService.buildOdooObjectPayload(
+        deal,
+        String(companyId),
+        true,
+        'deals',
+        { contactId: odooContactId, call_centre_deal_owner_id: callCenterDealOwnerPartner?.[0]?.id, deal_owner_id: dealOwnerPartner?.[0]?.id },
+        lineItems,
+      )) as ValsList;
+
+      const salesOrder = quote?.vals_list?.[0] as SalesOrder;
       const orderLines = salesOrder?.order_line;
       if (!orderLines.length) return await this.handleSkip(jobId, context, 'Invalid Line Items Or No Odoo Product Id');
       const quotation = await this.odooService.saleOrderCreation(jobId, quote, 'odoo_quotation_id');
@@ -543,11 +566,6 @@ export class IntegrationService {
       this.logger.verbose(`Payment Method : ${deal?.properties?.payment_method}`);
       const confirmStatus = (await this.odooService.saleOrderConformation(jobId, { ids: [quotation?.[0]], context: {} }, 'state')) as unknown as boolean;
       this.logger.verbose(`Sales order Status : ${confirmStatus}`);
-
-      let hsOwner;
-      if (deal?.properties?.hubspot_owner_id) {
-        hsOwner = await this.hubspotService.fetchOwnerById(jobId, deal?.properties?.hubspot_owner_id as string);
-      }
 
       const quoteTemplates = (await this.hubspotService.fetchQuoteTemplates(jobId))?.results?.find(
         (v) => v.properties?.hs_type == 'customizable_quote_template' && v.properties?.hs_name == 'Default Original',

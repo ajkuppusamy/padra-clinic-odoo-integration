@@ -11,6 +11,8 @@ import { AppModule } from './app.module';
 import { ResponseInterceptor } from '@common/interceptors';
 import { HttpExceptionFilter } from '@common/filters';
 import { loadHubSpotConfig } from '@libs/hubspot/config/hubspot.config';
+import { loadSaleServiceTypeConfig } from '@libs/odoo/config/service-type.config';
+import { loadTreatmentCategoryConfig } from '@libs/odoo/config/treatment-category.config';
 
 interface CsrfRequest extends Request {
   cookies: Record<string, string>;
@@ -73,6 +75,8 @@ async function bootstrap() {
   );
 
   loadHubSpotConfig(nodeEnv as unknown as string);
+  loadSaleServiceTypeConfig(nodeEnv as unknown as string);
+  loadTreatmentCategoryConfig(nodeEnv as unknown as string);
   app.use('/api/v1', redirectToSwagger);
   app.use('/api', redirectToSwagger);
   app.use('/', redirectToSwagger);

@@ -3,7 +3,6 @@ import { HubspotService } from './hubspot.service';
 import { HubspotAuthGuard } from '@common/guard';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiHeaders } from '@nestjs/swagger';
 import { HubspotWebhookDto, ProductDto } from './dto';
-import { CreateQuoteDto } from './dto/quotation-flow.dto';
 
 @ApiTags('Hubspot')
 @Controller('hubspot')
@@ -83,24 +82,5 @@ export class HubspotController {
   @Post('deals/:dealId/line-items')
   async createLineItems(@Param('dealId') dealId: string, @Body() body: ProductDto[]) {
     return this.hubspotService.syncOdooProductsToHubSpotLineItems(body, dealId);
-  }
-
-  @ApiOperation({ summary: 'Create quote for a deal from Odoo data' })
-  @ApiParam({ name: 'dealId', required: true })
-  @ApiBody({ type: CreateQuoteDto })
-  @ApiHeaders([
-    {
-      name: 'api-key',
-      required: true,
-      description: 'API key for authentication',
-    },
-  ])
-  @ApiResponse({ status: 200, description: 'Quote created successfully' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden' })
-  @HttpCode(HttpStatus.OK)
-  @Post('deals/:dealId/quotes')
-  async createQuote(@Param('dealId') dealId: string, @Body() body: CreateQuoteDto) {
-    return await this.hubspotService.createQuoteDirect(body, dealId);
   }
 }
