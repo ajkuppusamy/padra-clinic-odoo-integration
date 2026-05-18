@@ -19,9 +19,10 @@ import { HUBSPOT_OBJECT_PROPERTIES } from '@libs/hubspot/constants/properties';
 import { PaymentCreatedEvent, ProductCreateEvent, ProductUpdateEvent } from '@modules/odoo/interfaces/event.interfaces';
 import { delay } from '@common/utils';
 import { ConvertQuotationResponse } from '@libs/odoo/interfaces';
-import { HubspotWebhookDto, ProductDto } from './dto';
+import { HubspotProductDto, HubspotWebhookDto } from './dto';
 import { PublicOwner } from '@hubspot/api-client/lib/codegen/crm/owners/models/all';
 import { Product } from '@modules/odoo/interfaces';
+import { PaymentMethod } from './dto/quotation-flow.dto';
 
 @Injectable()
 export class HubspotService {
@@ -601,9 +602,9 @@ export class HubspotService {
     return await this.createLineItems(jobId, properties);
   }
 
-  public async syncOdooProductsToHubSpotLineItems(products: ProductDto[], dealId: string) {
+  public async syncOdooProductsToHubSpotLineItems(products: HubspotProductDto, dealId: string) {
     const results = await Promise.all(
-      products.map(async (product) => {
+      products.products.map(async (product) => {
         const properties: SimplePublicObjectInputForCreate = {
           properties: {
             name: `${product.name} - ${product.id}`,
@@ -626,7 +627,8 @@ export class HubspotService {
 
         try {
           const response = await this.hubspotLibService.createHubspotObject(HubspotObjects.LINE_ITEMS, properties);
-          await this.hubspotLibService.updateHubspotObject(HubspotObjects.DEALS, dealId, { line_items_created: 'true' });
+          const paymentMethod = products.paymentMethod as unknown as PaymentMethod;
+          await this.hubspotLibService.updateHubspotObject(HubspotObjects.DEALS, dealId, { line_items_created: 'true', payment_method: paymentMethod });
           return { success: true, data: response };
         } catch (error: any) {
           return {
@@ -640,7 +642,7 @@ export class HubspotService {
 
     return {
       success: true,
-      total: products.length,
+      total: products.products.length,
       results,
     };
   }

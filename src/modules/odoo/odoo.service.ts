@@ -212,7 +212,7 @@ export class OdooService {
     };
   }
 
-  public async listProductbyPipelineId(dealId: number, pipelineId: number, page = 1, limit = 100) {
+  public async listProductbyPipelineId(dealId: number, pipelineId: number | string, page = 1, limit = 100) {
     const pipelineCompanyMap: Record<string, number> = JSON.parse(this.configService.get<string>('HUBSPOT_PIPELINE_ODOO_COMPANY_MAP') || '{}');
     let companyId = pipelineCompanyMap[pipelineId] || pipelineCompanyMap.default;
     const emptyResponse = (message: string, branch?: string | null) => ({

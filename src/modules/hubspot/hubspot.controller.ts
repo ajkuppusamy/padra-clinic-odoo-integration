@@ -2,7 +2,7 @@ import { Body, Controller, HttpCode, HttpStatus, Post, Param, UseGuards } from '
 import { HubspotService } from './hubspot.service';
 import { HubspotAuthGuard } from '@common/guard';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiHeaders } from '@nestjs/swagger';
-import { HubspotWebhookDto, ProductDto } from './dto';
+import { HubspotProductDto, HubspotWebhookDto, ProductDto } from './dto';
 
 @ApiTags('Hubspot')
 @Controller('hubspot')
@@ -67,7 +67,7 @@ export class HubspotController {
 
   @ApiOperation({ summary: 'Create line items for a deal from Odoo product' })
   @ApiParam({ name: 'dealId', required: true })
-  @ApiBody({ type: ProductDto })
+  @ApiBody({ type: HubspotProductDto })
   @ApiHeaders([
     {
       name: 'api-key',
@@ -80,7 +80,7 @@ export class HubspotController {
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @HttpCode(HttpStatus.OK)
   @Post('deals/:dealId/line-items')
-  async createLineItems(@Param('dealId') dealId: string, @Body() body: ProductDto[]) {
+  async createLineItems(@Param('dealId') dealId: string, @Body() body: HubspotProductDto) {
     return this.hubspotService.syncOdooProductsToHubSpotLineItems(body, dealId);
   }
 }
