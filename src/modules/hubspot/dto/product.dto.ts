@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsEnum, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsEnum, IsNumber, IsOptional, IsString, ValidateNested } from 'class-validator';
 import { PaymentMethod } from './quotation-flow.dto';
 
 export class ProductDto {
@@ -58,5 +58,8 @@ export class HubspotProductDto {
   @ApiProperty({
     type: [ProductDto],
   })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ProductDto)
   products!: ProductDto[];
 }

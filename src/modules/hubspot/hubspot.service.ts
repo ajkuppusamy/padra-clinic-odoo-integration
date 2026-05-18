@@ -604,7 +604,7 @@ export class HubspotService {
 
   public async syncOdooProductsToHubSpotLineItems(products: HubspotProductDto, dealId: string) {
     const results = await Promise.all(
-      products.products.map(async (product) => {
+      products?.products?.map(async (product) => {
         const properties: SimplePublicObjectInputForCreate = {
           properties: {
             name: `${product.name} - ${product.id}`,
