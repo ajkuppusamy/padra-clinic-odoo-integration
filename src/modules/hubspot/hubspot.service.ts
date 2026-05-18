@@ -603,13 +603,21 @@ export class HubspotService {
   }
 
   public async syncOdooProductsToHubSpotLineItems(products: HubspotProductDto, dealId: string) {
+    let totalAmount = 0;
+
     const results = await Promise.all(
       products?.products?.map(async (product) => {
+        const quantity = Number(product.quantity ?? 1);
+        const price = Number(product.price ?? 0);
+
+        // Calculate line item total
+        totalAmount += quantity * price;
+
         const properties: SimplePublicObjectInputForCreate = {
           properties: {
             name: `${product.name} - ${product.id}`,
-            quantity: String(product.quantity ?? 1),
-            price: product.price?.toString() || '0',
+            quantity: quantity.toString(),
+            price: price.toString(),
             odoo_product_id: product.id.toString(),
           },
           associations: [
@@ -627,8 +635,6 @@ export class HubspotService {
 
         try {
           const response = await this.hubspotLibService.createHubspotObject(HubspotObjects.LINE_ITEMS, properties);
-          const paymentMethod = products.paymentMethod as unknown as PaymentMethod;
-          await this.hubspotLibService.updateHubspotObject(HubspotObjects.DEALS, dealId, { line_items_created: 'true', payment_method: paymentMethod });
           return { success: true, data: response };
         } catch (error: any) {
           return {
@@ -640,9 +646,17 @@ export class HubspotService {
       }),
     );
 
+    // Update deal after all line items created
+    await this.hubspotLibService.updateHubspotObject(HubspotObjects.DEALS, dealId, {
+      line_items_created: 'true',
+      payment_method: products.paymentMethod as unknown as PaymentMethod,
+      amount: totalAmount.toString(),
+    });
+
     return {
       success: true,
       total: products.products.length,
+      totalAmount,
       results,
     };
   }
