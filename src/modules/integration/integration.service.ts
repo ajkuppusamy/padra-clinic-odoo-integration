@@ -535,7 +535,8 @@ export class IntegrationService {
       if (deal?.properties?.hubspot_owner_id) hsOwner = await this.hubspotService.fetchOwnerById(jobId, deal?.properties?.hubspot_owner_id as string);
       if (deal?.properties?.call_center_deal_owner) callCenterOwner = await this.hubspotService.fetchOwnerById(jobId, deal?.properties?.call_center_deal_owner as string);
 
-      if (hsOwner?.email) await this.odooService.partnerSearch(jobId, { domain: [['email', 'ilike', hsOwner.email]], fields: ['id', 'display_name', 'email'] }, 'email');
+      if (hsOwner?.email)
+        dealOwnerPartner = await this.odooService.partnerSearch(jobId, { domain: [['email', 'ilike', hsOwner.email]], fields: ['id', 'display_name', 'email'] }, 'email');
 
       if (callCenterOwner?.email) {
         callCenterDealOwnerPartner = await this.odooService.partnerSearch(
