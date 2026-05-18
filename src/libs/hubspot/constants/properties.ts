@@ -30,6 +30,7 @@ export const HUBSPOT_OBJECT_PROPERTIES: Record<string, string[]> = {
     'discount_amount', // custom
     'number_of_hairs', // custom
     'service_type', // custom
+    'branch', // custom
   ],
 
   line_items: ['name', 'quantity', 'price', 'amount', 'hs_product_id', 'createdate', 'hs_object_id', 'odoo_product_id'],

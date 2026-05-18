@@ -25,6 +25,7 @@ import { ConfigService } from '@nestjs/config';
 import { HubspotService } from '@modules/hubspot/hubspot.service';
 import { OdooWebhookHandleDto } from './dto/odoo-webhook.dto';
 import { SimplePublicObject } from '@hubspot/api-client/lib/codegen/crm/companies';
+import { getMappedCompanyId } from '@libs/odoo/config/company.config';
 
 @Injectable()
 export class OdooService {
@@ -211,25 +212,26 @@ export class OdooService {
     };
   }
 
-  public async listProductbyPipelineId(pipelineId: number, page = 1, limit = 100) {
+  public async listProductbyPipelineId(dealId: number, pipelineId: number, page = 1, limit = 100) {
     const pipelineCompanyMap: Record<string, number> = JSON.parse(this.configService.get<string>('HUBSPOT_PIPELINE_ODOO_COMPANY_MAP') || '{}');
+    let companyId = pipelineCompanyMap[pipelineId] || pipelineCompanyMap.default;
+    const emptyResponse = (message: string, branch?: string | null) => ({
+      success: false,
+      message,
+      branch: branch || null,
+      products: [],
+      pagination: {
+        page,
+        limit,
+        total: 0,
+        hasNext: false,
+        hasPrev: false,
+        nextPage: null,
+        prevPage: null,
+      },
+    });
 
-    const companyId = pipelineCompanyMap[pipelineId] || pipelineCompanyMap.default;
-
-    if (!companyId) {
-      return {
-        products: [],
-        pagination: {
-          page,
-          limit,
-          total: 0,
-          hasNext: false,
-          hasPrev: false,
-          nextPage: null,
-          prevPage: null,
-        },
-      };
-    }
+    if (!companyId) return emptyResponse('Company mapping not found');
 
     const queue = await this.queueRepository
       .create({
@@ -245,6 +247,20 @@ export class OdooService {
 
     const jobId = queue.jobId;
 
+    const deal = await this.hubService.fetchDeal(dealId.toString(), jobId);
+
+    if (!deal) return emptyResponse('Deal not found');
+
+    const branch = deal?.properties?.branch as string;
+
+    const mappedCompanyId = getMappedCompanyId(companyId, branch);
+
+    if (!mappedCompanyId) return emptyResponse(`Company mapping not found for branch: ${branch}`, branch);
+
+    this.logger.verbose(`Deal ${dealId} is associated with branch: ${branch} and companyId ${companyId} is mapped to ${mappedCompanyId}`);
+
+    companyId = mappedCompanyId;
+
     const productPayload: SearchReadParams = {
       domain: [['company_id', '=', companyId]] as any,
       fields: ['id', 'name', 'display_name', 'list_price', 'company_id', 'base_unit_price'],
@@ -255,9 +271,13 @@ export class OdooService {
 
     const requests = await this.waitForResponses(jobId);
 
+    if (!requests?.length) return emptyResponse(`No requests found for branch: ${branch}`, branch);
+
     const requestIds = requests.map((r) => r.id);
 
     const responses = requestIds.length > 0 ? await this.responseRespository.findByRequestIds(requestIds) : [];
+
+    if (!responses?.length) return emptyResponse(`No responses found for branch: ${branch}`, branch);
 
     const normalize = (data: any): any[] => {
       if (!data) return [];
@@ -275,6 +295,7 @@ export class OdooService {
         return item && typeof item === 'object' && (item.list_price !== undefined || item.company_id !== undefined);
       });
 
+    if (!products.length) return emptyResponse(`Products not found for branch: ${branch}`, branch);
     const offset = (page - 1) * limit;
 
     const paginated = products.slice(offset, offset + limit);
@@ -288,6 +309,9 @@ export class OdooService {
     await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED, undefined, 'Product search success');
 
     return {
+      success: true,
+      message: `Products fetched successfully for branch: ${branch}`,
+      branch,
       products: paginated,
       pagination: {
         page,

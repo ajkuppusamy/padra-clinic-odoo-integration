@@ -44,15 +44,15 @@ export class OdooController {
   // @UseGuards(ApiKeyAuthGuard)
   @ApiOperation({ summary: 'Get products by company or pipeline with pagination' })
   @ApiQuery({
-    name: 'companyName',
-    type: String,
-    required: false,
-    example: 'padra',
-  })
-  @ApiQuery({
     name: 'pipelineId',
     type: Number,
-    required: false,
+    required: true,
+    example: 1532546015,
+  })
+  @ApiQuery({
+    name: 'dealId',
+    type: Number,
+    required: true,
     example: 1532546015,
   })
   @ApiQuery({
@@ -78,15 +78,11 @@ export class OdooController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   async listProducts(
-    @Query('companyName') companyName?: string,
     @Query('pipelineId') pipelineId?: number,
+    @Query('dealId') dealId?: number,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
     @Query('limit', new DefaultValuePipe(100), ParseIntPipe) limit?: number,
   ) {
-    if (pipelineId) {
-      return this.odooService.listProductbyPipelineId(Number(pipelineId), page, limit);
-    }
-
-    return this.odooService.listProductbyCompanyName(companyName || '', page, limit);
+    if (pipelineId) return this.odooService.listProductbyPipelineId(Number(dealId), Number(pipelineId), page, limit);
   }
 }
