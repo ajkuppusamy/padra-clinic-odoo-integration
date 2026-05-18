@@ -495,6 +495,9 @@ export class OdooService {
       const treatmentCategory = properties?.properties?.treatment_category as string;
       const sale_service_type_id = getSaleServiceTypeValue(serviceType);
       const sale_treatment_category_id = getTreatmentCategoryValue(treatmentCategory);
+      this.logger.debug(
+        `serviceType: ${serviceType}, treatmentCategory: ${treatmentCategory}, sale_service_type_id: ${sale_service_type_id}, sale_treatment_category_id: ${sale_treatment_category_id}`,
+      );
       const isOdooPropertymap = (await this.configService.get<string>('IS_ODOO_PROPERTY_MAP'))?.toLowerCase() === 'true';
       const dealProperties = isOdooPropertymap
         ? {
