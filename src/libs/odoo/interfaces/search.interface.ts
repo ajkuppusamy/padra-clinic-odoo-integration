@@ -56,6 +56,7 @@ export interface OrderLine {
   name: string;
   price_unit: number;
   product_uom_qty: number;
+  analytic_distribution?: { [key: string]: number };
 }
 
 export interface Invoice {

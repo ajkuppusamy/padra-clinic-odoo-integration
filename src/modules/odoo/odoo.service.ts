@@ -469,7 +469,12 @@ export class OdooService {
     companyId?: number | string,
     isWrite = false,
     object?: 'contacts' | 'deals' | 'invoice' | 'invoice_cvt',
-    { contactId, deal_owner_id, call_centre_deal_owner_id }: { contactId?: number; deal_owner_id?: number; call_centre_deal_owner_id?: number } = {},
+    {
+      contactId,
+      deal_owner_id,
+      call_centre_deal_owner_id,
+      odooServicePlanTypeId,
+    }: { contactId?: number; deal_owner_id?: number; call_centre_deal_owner_id?: number; odooServicePlanTypeId?: string } = {},
     lineItems?: SimplePublicObject[],
     odooQuoteId?: number,
     odooInvoiceId?: string | number,
@@ -554,6 +559,11 @@ export class OdooService {
                 name: line!.name,
                 product_uom_qty: line!.quantity,
                 price_unit: line!.price_unit,
+                analytic_distribution: odooServicePlanTypeId
+                  ? {
+                      [odooServicePlanTypeId]: 100,
+                    }
+                  : {},
               },
             ]),
           },
@@ -596,7 +606,7 @@ export class OdooService {
   }
 
   async saleOrderCreation(jobId: string, properties: ValsList, property: string): Promise<number[]> {
-    return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/sale.order/create', 'POST', properties, () =>
+    return this.executeTrackedRequest(jobId, RequestType.CREATE_QUOTATION, property, '/sale.order/create', 'POST', properties, () =>
       this.odooLibService.search(properties, '/sale.order/create'),
     ) as unknown as number[];
   }
@@ -608,19 +618,19 @@ export class OdooService {
   }
 
   async saleOrderConformation(jobId: string, properties: {}, property: string): Promise<number[]> {
-    return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/sale.order/action_confirm', 'POST', properties, () =>
+    return this.executeTrackedRequest(jobId, RequestType.CREATE_QUOTATION, property, '/sale.order/action_confirm', 'POST', properties, () =>
       this.odooLibService.search(properties, '/sale.order/action_confirm'),
     ) as unknown as number[];
   }
 
   async saleOrderWrite(jobId: string, properties: SearchSalesOrderWrite, property: string): Promise<boolean> {
-    return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/sale.order/write', 'POST', properties, () =>
+    return this.executeTrackedRequest(jobId, RequestType.CREATE_QUOTATION, property, '/sale.order/write', 'POST', properties, () =>
       this.odooLibService.search(properties, '/sale.order/write'),
     ) as unknown as boolean;
   }
 
   async partnerCreate(jobId: string, properties: ValsList, property: string): Promise<number[]> {
-    return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/res.partner/create', 'POST', properties, () =>
+    return this.executeTrackedRequest(jobId, RequestType.CREATE_CONTACT, property, '/res.partner/create', 'POST', properties, () =>
       this.odooLibService.search(properties, '/res.partner/create'),
     ) as unknown as number[];
   }
@@ -638,21 +648,33 @@ export class OdooService {
   }
 
   async accountInvoiceCreate(jobId: string, properties: ValsList, property: string): Promise<number[]> {
-    return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/account.move/create', 'POST', properties, () =>
+    return this.executeTrackedRequest(jobId, RequestType.CREATE_INVOICE, property, '/account.move/create', 'POST', properties, () =>
       this.odooLibService.search(properties, '/account.move/create'),
     ) as unknown as number[];
   }
 
   async paymentInvoiceCreate(jobId: string, properties: ValsList, property: string): Promise<number[]> {
-    return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/sale.advance.payment.inv/create', 'POST', properties, () =>
+    return this.executeTrackedRequest(jobId, RequestType.CREATE_INVOICE, property, '/sale.advance.payment.inv/create', 'POST', properties, () =>
       this.odooLibService.search(properties, '/sale.advance.payment.inv/create'),
     ) as unknown as number[];
   }
 
   async paymentInvoiceValidate(jobId: string, properties: ValsList | {}, property: string): Promise<number[]> {
-    return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/sale.advance.payment.inv/create_invoices', 'POST', properties, () =>
+    return this.executeTrackedRequest(jobId, RequestType.CREATE_INVOICE, property, '/sale.advance.payment.inv/create_invoices', 'POST', properties, () =>
       this.odooLibService.search(properties, '/sale.advance.payment.inv/create_invoices'),
     ) as unknown as number[];
+  }
+
+  async accountAnalyticSearch(jobId: string, properties: SearchReadParams, property: string): Promise<BaseSearch[]> {
+    return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/account.analytic.account/search_read', 'POST', properties, () =>
+      this.odooLibService.search(properties, '/account.analytic.account/search_read'),
+    ) as unknown as BaseSearch[];
+  }
+
+  async accountAnalyticPlanSearch(jobId: string, properties: SearchReadParams, property: string): Promise<BaseSearch[]> {
+    return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/account.analytic.plan/search_read', 'POST', properties, () =>
+      this.odooLibService.search(properties, '/account.analytic.plan/search_read'),
+    ) as unknown as BaseSearch[];
   }
 
   private async executeTrackedRequest<T>(

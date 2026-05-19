@@ -52,6 +52,9 @@ export class AwsSqsConsumerService {
         case 'quotation_status_update':
           await this.integrationService.handlingQuotaionStatus(jobId, data);
           break;
+        case 'close_service':
+          await this.integrationService.handlingCloseService(jobId, data);
+          break;
 
         default:
           this.logger.warn(`Unhandled eventName: ${eventName}`);

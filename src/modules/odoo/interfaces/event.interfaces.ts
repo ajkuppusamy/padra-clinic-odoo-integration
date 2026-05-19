@@ -153,11 +153,24 @@ export interface ProductUpdateEvent extends CreateProductRequest, CreateProductR
   event: 'product_update';
 }
 
+export interface CloseServiceWebhook {
+  event_type: string;
+  is_closed: boolean;
+  order_id: number;
+  order_name: string;
+  partner_id: number;
+  partner_name: string;
+  session: number;
+  sessions_completed: number;
+  timestamp: string;
+}
+
 export type OdooWebhookEvent =
   | QuotationStatusUpdateEvent
   | InvoiceCreatedEvent
   | PaymentCreatedEvent
   | RefundCreditNoteEvent
   | PaymentLinkTabiTamaraEvent
+  | CloseServiceWebhook
   | ProductCreateEvent
   | ProductUpdateEvent;
