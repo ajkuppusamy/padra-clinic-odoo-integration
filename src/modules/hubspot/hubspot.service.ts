@@ -611,8 +611,8 @@ export class HubspotService {
         const price = Number(product.price ?? 0);
 
         // // Calculate line item total
-        // totalAmount += quantity * price;
-        totalAmount += price;
+        totalAmount += quantity * price;
+        // totalAmount += price;
 
         const properties: SimplePublicObjectInputForCreate = {
           properties: {
