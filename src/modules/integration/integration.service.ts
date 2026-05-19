@@ -503,11 +503,9 @@ export class IntegrationService {
       });
       if (!contacts.length) return await this.handleSkip(jobId, context, 'Deal Associated Contact Not Found');
 
-      const stageIds = this.configService.get<string>('HUBSPOT_QUOTATION_STAGE_IDS')?.split(',');
-
-      this.logger.debug(`Deal Stage Ids : ${stageIds}`);
-
-      if (!stageIds?.includes(deal.properties.dealstage as string)) return await this.handleSkip(jobId, context, 'Deal Stage not Quotation Process');
+      // const stageIds = this.configService.get<string>('HUBSPOT_QUOTATION_STAGE_IDS')?.split(',');
+      // this.logger.debug(`Deal Stage Ids : ${stageIds}`);
+      // if (!stageIds?.includes(deal.properties.dealstage as string)) return await this.handleSkip(jobId, context, 'Deal Stage not Quotation Process');
 
       // const companyId = await this.dealPipeLineByGetCompanyId(jobId, deal);
 
