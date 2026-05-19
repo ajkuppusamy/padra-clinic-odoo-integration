@@ -10,7 +10,7 @@ const configs: Record<Stage, Record<string, string>> = {
       'Hair Transplant': 3,
       Beauty: 4,
       PRP: 5,
-      'Hair Transplant - Revisit': 6,
+      'Hair Transplant - Revisit': 3, // Using same service type for revisit as original procedure for easier reporting in HubSpot, can be changed if needed
       Products: 7,
     }),
   },
