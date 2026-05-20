@@ -25,6 +25,7 @@ import { JwtStrategy } from '@common/stratagies';
 
 import { DatabaseModule } from '@common/database/database.module';
 import { IntegrationModule } from '@modules/integration/integration.module';
+import { AuditModule } from '@modules/audit/audit.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { IntegrationModule } from '@modules/integration/integration.module';
     HubspotControllerModule,
     AwsSqsModule,
     HealthModule,
+    AuditModule,
   ],
   controllers: [AppController],
   providers: [

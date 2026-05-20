@@ -1,7 +1,16 @@
 import { WebhookEventType } from '@libs/odoo/enums';
-import { ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { ApiPropertyOptional, IntersectionType, PartialType } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
-import { IsArray, IsDateString, IsEmail, IsEnum, IsNumber, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { IsArray, IsBoolean, IsDateString, IsEmail, IsEnum, IsNumber, IsOptional, IsString, ValidateNested } from 'class-validator';
+
+const ToNumber = () =>
+  Transform(({ value }) => {
+    if (value === null || value === undefined || value === '') return undefined;
+
+    const parsed = Number(value);
+
+    return Number.isNaN(parsed) ? value : parsed;
+  });
 
 export class WebhookLineDto {
   @ApiPropertyOptional({ example: '' })
@@ -13,18 +22,21 @@ export class WebhookLineDto {
   @ApiPropertyOptional({ example: 100 })
   @Type(() => Number)
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   price_subtotal?: number;
 
   @ApiPropertyOptional({ example: 100 })
   @Type(() => Number)
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   price_unit?: number;
 
   @ApiPropertyOptional({ example: 586 })
   @Type(() => Number)
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   product_id?: number;
 
@@ -37,6 +49,7 @@ export class WebhookLineDto {
   @ApiPropertyOptional({ example: 1 })
   @Type(() => Number)
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   quantity?: number;
 }
@@ -57,12 +70,14 @@ export class ReconciledInvoiceDto {
   @ApiPropertyOptional({ example: 100 })
   @Type(() => Number)
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   residual_amount?: number;
 
   @ApiPropertyOptional({ example: 115 })
   @Type(() => Number)
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   total_amount?: number;
 }
@@ -76,9 +91,15 @@ export class OdooWebhookEventDto {
   @IsString()
   currency?: string;
 
-  @ApiPropertyOptional({ enum: WebhookEventType })
+  @ApiPropertyOptional({
+    enum: WebhookEventType,
+    example: 'quotation_status_update',
+  })
   @IsOptional()
-  @IsEnum(WebhookEventType)
+  @Transform(({ value }) => value?.toString()?.trim())
+  @IsEnum(WebhookEventType, {
+    message: `event_type must be one of: ${Object.values(WebhookEventType).join(', ')}`,
+  })
   event_type?: WebhookEventType;
 
   @ApiPropertyOptional({ type: [WebhookLineDto] })
@@ -97,6 +118,7 @@ export class OdooWebhookEventDto {
   @ApiPropertyOptional({ example: 89 })
   @Type(() => Number)
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   partner_id?: number;
 
@@ -121,6 +143,7 @@ export class OdooWebhookEventDto {
   @ApiPropertyOptional({ example: 11500 })
   @Type(() => Number)
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   total_amount?: number;
 
@@ -159,6 +182,7 @@ export class OdooWebhookEventDto {
   @ApiPropertyOptional({ example: 11500 })
   @Type(() => Number)
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   residual_amount?: number;
 
@@ -171,12 +195,14 @@ export class OdooWebhookEventDto {
   @ApiPropertyOptional({ example: 1500 })
   @Type(() => Number)
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   tax_amount?: number;
 
   @ApiPropertyOptional({ example: 10000 })
   @Type(() => Number)
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   untaxed_amount?: number;
 
@@ -211,6 +237,7 @@ export class OdooWebhookEventDto {
   @ApiPropertyOptional({ example: 9525 })
   @Type(() => Number)
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   amount?: number;
 
@@ -262,30 +289,35 @@ export class OdooWebhookEventDto {
   @ApiPropertyOptional({ example: 94 })
   @Type(() => Number)
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   payment_id?: number;
 
   @ApiPropertyOptional({ example: 209 })
   @Type(() => Number)
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   order_id?: number;
 
   @ApiPropertyOptional({ example: 306 })
   @Type(() => Number)
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   invoice_id?: number;
 
   @ApiPropertyOptional({ example: 306 })
   @Type(() => Number)
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   move_id?: number;
 
   @ApiPropertyOptional({ example: 199 })
   @Type(() => Number)
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   quotation_id?: number;
 
@@ -296,8 +328,88 @@ export class OdooWebhookEventDto {
   @Type(() => Number)
   @IsOptional()
   @IsArray()
+  @Transform(({ value }) => (Array.isArray(value) ? value.map((v) => Number(v)) : []))
   @IsNumber({}, { each: true })
   invoice_ids?: number[];
 }
 
-export class OdooWebhookHandleDto extends PartialType(OdooWebhookEventDto) {}
+export class CloseServiceWebhookDto {
+  @ApiPropertyOptional({
+    example: 'close_service',
+  })
+  @IsOptional()
+  @IsString()
+  close_service_event_type?: string;
+
+  @ApiPropertyOptional({
+    example: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  is_closed?: boolean;
+
+  @ApiPropertyOptional({
+    example: 163,
+  })
+  @IsOptional()
+  @ToNumber()
+  @IsNumber()
+  order_id?: number;
+
+  @ApiPropertyOptional({
+    example: [109],
+    type: [Number],
+  })
+  @IsOptional()
+  @IsArray()
+  @Transform(({ value }) => (Array.isArray(value) ? value.map((v) => Number(v)) : []))
+  @IsNumber({}, { each: true })
+  picking_ids?: number[];
+
+  @ApiPropertyOptional({
+    example: 'S00172',
+  })
+  @IsOptional()
+  @IsString()
+  order_name?: string;
+
+  @ApiPropertyOptional({
+    example: 72,
+  })
+  @IsOptional()
+  @ToNumber()
+  @IsNumber()
+  partner_id?: number;
+
+  @ApiPropertyOptional({
+    example: 'Test First Name Test Second Name',
+  })
+  @IsOptional()
+  @IsString()
+  partner_name?: string;
+
+  @ApiPropertyOptional({
+    example: 0,
+  })
+  @IsOptional()
+  @ToNumber()
+  @IsNumber()
+  session?: number;
+
+  @ApiPropertyOptional({
+    example: 0,
+  })
+  @IsOptional()
+  @ToNumber()
+  @IsNumber()
+  sessions_completed?: number;
+
+  @ApiPropertyOptional({
+    example: '2026-05-19T08:39:18Z',
+  })
+  @IsOptional()
+  @IsDateString()
+  timestamp?: string;
+}
+
+export class OdooWebhookHandleDto extends PartialType(IntersectionType(OdooWebhookEventDto, CloseServiceWebhookDto)) {}

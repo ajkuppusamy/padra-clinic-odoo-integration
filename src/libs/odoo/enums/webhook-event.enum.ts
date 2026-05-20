@@ -4,4 +4,6 @@ export enum WebhookEventType {
   PAYMENT_CREATED = 'payment_created',
   REFUND_CREDIT_NOTE = 'refund_credit_note',
   PAYMENT_LINK_TABI_TAMARA = 'payment_link_tabi_tamara',
+  CLOSE_SERVICE = 'close_service',
+  CLOSE_SESSION = 'close_session',
 }

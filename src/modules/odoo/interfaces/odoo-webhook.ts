@@ -8,12 +8,14 @@ export type OdooWebhookEventName =
   | 'payment_link_tabi_tamara'
   | 'product_create'
   | 'product_update'
-  | 'payment_created';
+  | 'payment_created'
+  | 'close_service';
 
 export const ODOO_WEBHOOK_EVENT_NAMES: OdooWebhookEventName[] = [
   'quotation_status_update',
   'invoice_created',
   'payment_created',
+  'close_service',
   // 'payment_link_tabi_tamara',
   // 'product_create',
   // 'product_update',
@@ -33,6 +35,7 @@ export const ODOO_WEBHOOK_EVENT_LABELS: Record<OdooWebhookEventName, string> = {
   payment_link_tabi_tamara: 'Payment Link (Tabi/Tamara)',
   product_create: 'Product Created',
   product_update: 'Product Updated',
+  close_service: 'Close Service',
 };
 
 export const ODOO_WEBHOOK_EVENT_GROUPS = {
@@ -40,6 +43,7 @@ export const ODOO_WEBHOOK_EVENT_GROUPS = {
   invoice: ['invoice_created', 'refund_credit_note'] as OdooWebhookEventName[],
   payment: ['payment_created', 'payment_link_tabi_tamara'] as OdooWebhookEventName[],
   product: ['product_create', 'product_update'] as OdooWebhookEventName[],
+  close_service: ['close_service'] as OdooWebhookEventName[],
 } as const;
 
 export interface OdooQuotationStatusWebhook {
