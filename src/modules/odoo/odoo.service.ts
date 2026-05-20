@@ -214,7 +214,7 @@ export class OdooService {
 
   public async listProductbyPipelineId(dealId: number, pipelineId: number | string, page = 1, limit = 100) {
     const pipelineCompanyMap: Record<string, number> = JSON.parse(this.configService.get<string>('HUBSPOT_PIPELINE_ODOO_COMPANY_MAP') || '{}');
-    let companyId = pipelineCompanyMap[pipelineId] || pipelineCompanyMap.default;
+    let companyId = pipelineCompanyMap[pipelineId];
     const emptyResponse = (message: string, branch?: string | null) => ({
       success: false,
       message,
@@ -253,13 +253,15 @@ export class OdooService {
 
     const branch = deal?.properties?.branch as string;
 
-    const mappedCompanyId = getMappedCompanyId(companyId, branch);
+    // If company mapping is not found for the pipeline, try to get the company mapping based on the branch value
 
-    if (!mappedCompanyId) return emptyResponse(`Company mapping not found for branch: ${branch}`, branch);
+    // const mappedCompanyId = getMappedCompanyId(companyId, branch);
 
-    this.logger.verbose(`Deal ${dealId} is associated with branch: ${branch} and companyId ${companyId} is mapped to ${mappedCompanyId}`);
+    // if (!mappedCompanyId) return emptyResponse(`Company mapping not found for branch: ${branch}`, branch);
 
-    companyId = mappedCompanyId;
+    // this.logger.verbose(`Deal ${dealId} is associated with branch: ${branch} and companyId ${companyId} is mapped to ${mappedCompanyId}`);
+
+    // companyId = mappedCompanyId;
 
     const productPayload: SearchReadParams = {
       domain: [['company_id', '=', companyId]] as any,
