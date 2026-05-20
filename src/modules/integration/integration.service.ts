@@ -235,7 +235,7 @@ export class IntegrationService {
   }
 
   private async getDeal(jobId: string, dealId: string) {
-    return this.hubspotService.fetchDeal(jobId, dealId);
+    return this.hubspotService.fetchDeal(dealId, jobId);
   }
 
   private async buildPaymentUpdatePayload(deal: SimplePublicObjectWithAssociations, event: PaymentCreatedEvent) {
