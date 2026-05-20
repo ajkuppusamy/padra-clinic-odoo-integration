@@ -1,7 +1,16 @@
 import { WebhookEventType } from '@libs/odoo/enums';
 import { ApiPropertyOptional, IntersectionType, PartialType } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { IsArray, IsBoolean, IsDateString, IsEmail, IsEnum, IsNumber, IsOptional, IsString, ValidateNested } from 'class-validator';
+
+const ToNumber = () =>
+  Transform(({ value }) => {
+    if (value === null || value === undefined || value === '') return undefined;
+
+    const parsed = Number(value);
+
+    return Number.isNaN(parsed) ? value : parsed;
+  });
 
 export class WebhookLineDto {
   @ApiPropertyOptional({ example: '' })
@@ -11,16 +20,19 @@ export class WebhookLineDto {
 
   @ApiPropertyOptional({ example: 1 })
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   price_subtotal?: number;
 
   @ApiPropertyOptional({ example: 1 })
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   price_unit?: number;
 
   @ApiPropertyOptional({ example: 395 })
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   product_id?: number;
 
@@ -31,6 +43,7 @@ export class WebhookLineDto {
 
   @ApiPropertyOptional({ example: 1 })
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   quantity?: number;
 }
@@ -48,11 +61,13 @@ export class ReconciledInvoiceDto {
 
   @ApiPropertyOptional({ example: 1.15 })
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   residual_amount?: number;
 
   @ApiPropertyOptional({ example: 1.15 })
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   total_amount?: number;
 }
@@ -62,13 +77,17 @@ export class OdooWebhookEventDto {
   @IsOptional()
   @IsString()
   currency?: string;
+
   @ApiPropertyOptional({
     enum: WebhookEventType,
-    example: 'close_service',
+    example: 'quotation_status_update',
   })
   @IsOptional()
-  @IsString()
-  event_type?: WebhookEventType | string;
+  @Transform(({ value }) => value?.toString()?.trim())
+  @IsEnum(WebhookEventType, {
+    message: `event_type must be one of: ${Object.values(WebhookEventType).join(', ')}`,
+  })
+  event_type?: WebhookEventType;
 
   @ApiPropertyOptional({ type: [WebhookLineDto] })
   @IsOptional()
@@ -84,6 +103,7 @@ export class OdooWebhookEventDto {
 
   @ApiPropertyOptional({ example: 29 })
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   partner_id?: number;
 
@@ -104,10 +124,9 @@ export class OdooWebhookEventDto {
 
   @ApiPropertyOptional({ example: 1.15 })
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   total_amount?: number;
-
-  // Invoice
 
   @ApiPropertyOptional({ example: '2026-05-08' })
   @IsOptional()
@@ -136,6 +155,7 @@ export class OdooWebhookEventDto {
 
   @ApiPropertyOptional({ example: 1.15 })
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   residual_amount?: number;
 
@@ -146,15 +166,15 @@ export class OdooWebhookEventDto {
 
   @ApiPropertyOptional({ example: 0.15 })
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   tax_amount?: number;
 
   @ApiPropertyOptional({ example: 1 })
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   untaxed_amount?: number;
-
-  // Quotation
 
   @ApiPropertyOptional({ example: '2026-05-08T11:58:21' })
   @IsOptional()
@@ -176,10 +196,9 @@ export class OdooWebhookEventDto {
   @IsString()
   quotation_reference?: string;
 
-  // Payment
-
   @ApiPropertyOptional({ example: 1.15 })
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   amount?: number;
 
@@ -217,30 +236,37 @@ export class OdooWebhookEventDto {
 
   @ApiPropertyOptional({ example: 1 })
   @IsOptional()
-  id?: number | string;
+  @ToNumber()
+  @IsNumber()
+  id?: number;
 
   @ApiPropertyOptional({ example: 1 })
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   payment_id?: number;
 
   @ApiPropertyOptional({ example: 1 })
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   order_id?: number;
 
   @ApiPropertyOptional({ example: 1 })
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   invoice_id?: number;
 
   @ApiPropertyOptional({ example: 1 })
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   move_id?: number;
 
   @ApiPropertyOptional({ example: 1 })
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   quotation_id?: number;
 
@@ -250,7 +276,7 @@ export class OdooWebhookEventDto {
   })
   @IsOptional()
   @IsArray()
-  @Type(() => Number)
+  @Transform(({ value }) => (Array.isArray(value) ? value.map((v) => Number(v)) : []))
   @IsNumber({}, { each: true })
   invoice_ids?: number[];
 }
@@ -274,8 +300,19 @@ export class CloseServiceWebhookDto {
     example: 163,
   })
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   order_id?: number;
+
+  @ApiPropertyOptional({
+    example: [109],
+    type: [Number],
+  })
+  @IsOptional()
+  @IsArray()
+  @Transform(({ value }) => (Array.isArray(value) ? value.map((v) => Number(v)) : []))
+  @IsNumber({}, { each: true })
+  picking_ids?: number[];
 
   @ApiPropertyOptional({
     example: 'S00172',
@@ -288,11 +325,12 @@ export class CloseServiceWebhookDto {
     example: 72,
   })
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   partner_id?: number;
 
   @ApiPropertyOptional({
-    example: 'Test  First Name Test  Second Name',
+    example: 'Test First Name Test Second Name',
   })
   @IsOptional()
   @IsString()
@@ -302,6 +340,7 @@ export class CloseServiceWebhookDto {
     example: 0,
   })
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   session?: number;
 
@@ -309,6 +348,7 @@ export class CloseServiceWebhookDto {
     example: 0,
   })
   @IsOptional()
+  @ToNumber()
   @IsNumber()
   sessions_completed?: number;
 

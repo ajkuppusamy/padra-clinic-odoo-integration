@@ -253,13 +253,13 @@ export class OdooService {
 
     const branch = deal?.properties?.branch as string;
 
-    const mappedCompanyId = getMappedCompanyId(companyId, branch);
+    // const mappedCompanyId = getMappedCompanyId(companyId, branch);
 
-    if (!mappedCompanyId) return emptyResponse(`Company mapping not found for branch: ${branch}`, branch);
+    // if (!mappedCompanyId) return emptyResponse(`Company mapping not found for branch: ${branch}`, branch);
 
-    this.logger.verbose(`Deal ${dealId} is associated with branch: ${branch} and companyId ${companyId} is mapped to ${mappedCompanyId}`);
+    // this.logger.verbose(`Deal ${dealId} is associated with branch: ${branch} and companyId ${companyId} is mapped to ${mappedCompanyId}`);
 
-    companyId = mappedCompanyId;
+    // companyId = mappedCompanyId;
 
     const productPayload: SearchReadParams = {
       domain: [['company_id', '=', companyId]] as any,
