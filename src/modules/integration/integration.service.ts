@@ -511,7 +511,7 @@ export class IntegrationService {
 
       const odooServicePlanTypeId = await this.getAnalyticAccountByServiceType(jobId, context, companyId, deal);
 
-      if (!odooServicePlanTypeId) return;
+      // if (!odooServicePlanTypeId) return;
 
       const primaryContact = contacts?.[0];
 
@@ -589,7 +589,7 @@ export class IntegrationService {
     this.logger.debug(`${this.getAnalyticAccountByServiceType.name} - Analytic account search initiated based on service type`);
     const odooAnalyticAccountPlanId = Number(this.configService.get<number | string>('ODOO_ANALYTIC_PLAN_ID') || 0);
 
-    if (!odooAnalyticAccountPlanId) return await this.handleSkip(jobId, context, 'Odoo Analytic Account Plan Id Not Found');
+    //if (!odooAnalyticAccountPlanId) return await this.handleSkip(jobId, context, 'Odoo Analytic Account Plan Id Not Found');
 
     const analyticAccounts = await this.odooService.accountAnalyticSearch(
       jobId,
@@ -603,17 +603,17 @@ export class IntegrationService {
       'company_id',
     );
 
-    if (!analyticAccounts?.length) return await this.handleSkip(jobId, context, `No Analytic Account Found for company id : ${companyId}`);
+    //if (!analyticAccounts?.length) return await this.handleSkip(jobId, context, `No Analytic Account Found for company id : ${companyId}`);
 
     this.logger.debug(`${this.getAnalyticAccountByServiceType.name} - Found analytic accounts: ${analyticAccounts.length}`);
 
-    if (!deal?.properties?.service_type) return await this.handleSkip(jobId, context, 'Service type is required to process the deal');
+    // if (!deal?.properties?.service_type) return await this.handleSkip(jobId, context, 'Service type is required to process the deal');
 
     const serviceType = deal.properties.service_type as unknown as string;
 
     const odooServicePlanTypeId = analyticAccounts?.find((a) => a?.display_name === serviceType)?.id?.toString();
 
-    if (!odooServicePlanTypeId) return await this.handleSkip(jobId, context, `No Analytic Account Found for service type : ${serviceType}`);
+    // if (!odooServicePlanTypeId) return await this.handleSkip(jobId, context, `No Analytic Account Found for service type : ${serviceType}`);
 
     return odooServicePlanTypeId;
   }
