@@ -67,15 +67,37 @@ export class AuditService {
 
     const [queues, total] = await query.getManyAndCount();
 
+    if (!queues.length) {
+      return {
+        pagination: {
+          total: 0,
+          page,
+          limit,
+          totalPages: 0,
+          hasNextPage: false,
+          hasPreviousPage: false,
+        },
+        logs: [],
+      };
+    }
+
     const logs = await Promise.all(
       queues.map(async (queue) => {
         const result: any = {
           ...queue,
         };
 
-        if (isRequest) result.requests = await this.requestRepository.findByJobId(queue.jobId);
+        if (isRequest) {
+          const requests = await this.requestRepository.findByJobId(queue.jobId);
 
-        if (isResponse) result.responses = await this.responseRepository.findByJobId(queue.jobId);
+          result.requests = requests?.length ? requests : [];
+        }
+
+        if (isResponse) {
+          const responses = await this.responseRepository.findByJobId(queue.jobId);
+
+          result.responses = responses?.length ? responses : [];
+        }
 
         return result;
       }),
