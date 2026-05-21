@@ -508,7 +508,7 @@ export class OdooService {
 
     const mappedLines = (lineItems ?? [])
       .map((item) => {
-        const productId = item?.properties?.odoo_product_id as unknown as number;
+        const productId = Number(item?.properties?.odoo_product_id) as unknown as number;
         if (!productId) return null;
         return {
           product_id: productId,
@@ -555,10 +555,10 @@ export class OdooService {
               0,
               0,
               {
-                product_id: line!.product_id,
+                product_id: Number(line!.product_id),
                 name: line!.name,
-                product_uom_qty: line!.quantity,
-                price_unit: line!.price_unit,
+                product_uom_qty: Number(line!.quantity),
+                price_unit: Number(line!.price_unit),
                 analytic_distribution: odooServicePlanTypeId
                   ? {
                       [odooServicePlanTypeId]: 100,
@@ -583,10 +583,10 @@ export class OdooService {
               0,
               0,
               {
-                product_id: line!.product_id,
+                product_id: Number(line!.product_id),
                 name: line!.name,
-                quantity: line!.quantity,
-                price_unit: line!.price_unit,
+                quantity: Number(line!.quantity),
+                price_unit: Number(line!.price_unit),
               },
             ]),
           },
