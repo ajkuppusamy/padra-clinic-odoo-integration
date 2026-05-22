@@ -327,9 +327,7 @@ export class OdooService {
 
   async searchProductByCompanyId(jobId: string, payload: SearchReadParams, property: string) {
     try {
-      return await this.executeTrackedRequest(jobId, RequestType.SEARCH, property, 'product.template/search_read', 'POST', payload, () =>
-        this.odooLibService.search(payload, '/product.template/search_read'),
-      );
+      return await this.productSearch(jobId, payload, property);
     } catch (error: any) {
       const message = (error?.message || '').toLowerCase();
 
@@ -674,6 +672,18 @@ export class OdooService {
   async accountAnalyticPlanSearch(jobId: string, properties: SearchReadParams, property: string): Promise<BaseSearch[]> {
     return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/account.analytic.plan/search_read', 'POST', properties, () =>
       this.odooLibService.search(properties, '/account.analytic.plan/search_read'),
+    ) as unknown as BaseSearch[];
+  }
+
+  async getProductTemplateSearch(jobId: string, properties: SearchReadParams, property: string): Promise<BaseSearch[]> {
+    return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/product.template/search_read', 'POST', properties, () =>
+      this.odooLibService.search(properties, '/product.template/search_read'),
+    ) as unknown as BaseSearch[];
+  }
+
+  async productSearch(jobId: string, properties: SearchReadParams, property: string): Promise<BaseSearch[]> {
+    return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/product.product/search_read', 'POST', properties, () =>
+      this.odooLibService.search(properties, '/product.product/search_read'),
     ) as unknown as BaseSearch[];
   }
 
