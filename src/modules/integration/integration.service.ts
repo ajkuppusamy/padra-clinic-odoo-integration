@@ -325,10 +325,8 @@ export class IntegrationService {
       invoiceStatus = 'paid';
     }
 
-    const isAreadExistInvoiceId = await this.hubspotService.fetchInVoiceByOdooInVoiceId(jobId, invoiceId as string);
-
-    if (isAreadExistInvoiceId)
-      await this.hubspotService.updateInvoiceById(jobId, isAreadExistInvoiceId, {
+    if (invoiceId)
+      await this.hubspotService.updateInvoiceById(jobId, invoiceId, {
         hs_invoice_status: invoiceStatus,
       });
 
