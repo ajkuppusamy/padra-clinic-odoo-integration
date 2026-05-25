@@ -430,6 +430,7 @@ export class OdooService {
     delete payload.state;
     delete payload.postal_code;
     delete payload.country;
+    delete payload.address;
 
     const createdPartners = await this.partnerCreate(jobId, { vals_list: [payload] }, payload.email);
 
