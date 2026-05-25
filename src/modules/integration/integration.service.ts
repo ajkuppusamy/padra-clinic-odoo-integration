@@ -317,6 +317,21 @@ export class IntegrationService {
 
     await this.updateDeal(jobId, dealId, payload);
 
+    const totalAmount = Number(deal?.properties?.amount ?? 0);
+    const totalPaidAmount = Number(payload?.total_amount_paid ?? 0);
+
+    let invoiceStatus = 'open';
+    if (totalPaidAmount >= totalAmount) {
+      invoiceStatus = 'paid';
+    }
+
+    const isAreadExistInvoiceId = await this.hubspotService.fetchInVoiceByOdooInVoiceId(jobId, invoiceId as string);
+
+    if (isAreadExistInvoiceId)
+      await this.hubspotService.updateInvoiceById(jobId, isAreadExistInvoiceId, {
+        hs_invoice_status: invoiceStatus,
+      });
+
     await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
 
     this.logger.debug(`[${context}] Completed`, { jobId });
