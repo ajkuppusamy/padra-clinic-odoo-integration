@@ -263,13 +263,13 @@ export class HubspotService {
     dealId: string,
     lineItems: SimplePublicObject[],
     contacts: SimplePublicObject[],
-    isPaid?: boolean,
+    status?: 'paid' | 'open' | 'draft',
   ): SimplePublicObjectInputForCreate {
     return {
       properties: {
         hs_title: `Invoice from Odoo - ${quotationId}`,
         hs_currency: 'AED', // USD OR AED
-        hs_invoice_status: isPaid ? 'paid' : 'draft',
+        hs_invoice_status: status ?? 'draft',
         hs_invoice_date: new Date().toISOString(),
         odoo_quotation_id: quotationId ?? '',
         odoo_invoice_id: invoiceId ?? '',
@@ -292,14 +292,14 @@ export class HubspotService {
     deal: SimplePublicObjectWithAssociations | SimplePublicObject,
     lineItems: SimplePublicObject[],
     contact: SimplePublicObject[],
-    isPaid?: boolean,
+    status?: 'paid' | 'open' | 'draft',
   ) {
-    const payload = this.buildCreateInvoicePayload(quotation.quotation_id as string, quotation.invoice_id as string, deal.id, lineItems, contact, false);
+    const payload = this.buildCreateInvoicePayload(quotation.quotation_id as string, quotation.invoice_id as string, deal.id, lineItems, contact, status);
 
     this.logger.debug(`${this.processInvoice.name} payload=${JSON.stringify(payload)}`);
 
     const invoice = await this.createInVoice(jobId, payload);
-    if (invoice?.id && isPaid)
+    if (invoice?.id && status === 'paid')
       return await this.updateInvoiceById(jobId, invoice.id, {
         hs_invoice_status: 'paid',
       });
