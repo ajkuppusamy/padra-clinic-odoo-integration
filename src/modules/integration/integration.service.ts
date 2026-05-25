@@ -276,6 +276,7 @@ export class IntegrationService {
     invoiceId: string,
     contacts: SimplePublicObject[],
     lineItems: SimplePublicObject[],
+    isPaid?: boolean,
   ): Promise<void> {
     // const createCustomLineItemRecord = await this.hubspotService.processCreateLinetems(jobId, deal.id, event);
     // const { odoo_invoice_id, odoo_quotation_id } = (await this.hubspotService.fetchInvoiceById(jobId, invoiceId)).properties;
@@ -285,6 +286,7 @@ export class IntegrationService {
       deal,
       lineItems,
       contacts,
+      isPaid,
     );
     this.logger.log(`Invoice Created  : ${JSON.stringify(invoice)}`);
   }
@@ -344,15 +346,14 @@ export class IntegrationService {
     // if (isAlreadyExistDeal) return await this.handleSkip(jobId, context, `${invoiceId} - invoice already created and associated with deal - ${isAlreadyExistDeal}`);
     const isAreadExistInvoiceId = await this.hubspotService.fetchInVoiceByOdooInVoiceId(jobId, invoiceId as string);
 
+    const isPaid = event.state === 'posted';
     if (isAreadExistInvoiceId) {
-      const isPaid = event.state === 'posted';
-
       await this.hubspotService.updateInvoiceById(jobId, isAreadExistInvoiceId, {
         hs_invoice_status: isPaid ? 'paid' : 'draft',
       });
       return await this.handleSkip(jobId, context, `${invoiceId} - Invoice already exist with id ${isAreadExistInvoiceId}, updated status to ${isPaid ? 'paid' : 'draft'}`);
     }
-    await this.handleInvoiceProcess(jobId, deal, event, invoiceId as string, contacts ?? [], lineItems ?? []);
+    await this.handleInvoiceProcess(jobId, deal, event, invoiceId as string, contacts ?? [], lineItems ?? [], isPaid);
 
     await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
 
