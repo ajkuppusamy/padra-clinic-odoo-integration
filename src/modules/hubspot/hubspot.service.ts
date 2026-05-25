@@ -227,6 +227,12 @@ export class HubspotService {
     );
   }
 
+  public async updateInvoiceById(jobId: string, invoiceId: string, properties: Record<string, any>) {
+    return this.executeTrackedRequest(jobId, RequestType.UPDATE_INVOICE, invoiceId, `/invoices/${invoiceId}`, 'PUT', properties, () =>
+      this.hubspotLibService.updateHubspotObject(HubspotObjects.INVOICES, invoiceId, properties),
+    );
+  }
+
   public async createQuote(jobId: string, properties: SimplePublicObjectInputForCreate) {
     return this.executeTrackedRequest(jobId, RequestType.CREATE_QUOTE, null, `/quotes`, 'POST', properties, () =>
       this.hubspotLibService.createHubspotObject(HubspotObjects.QUOTES, properties),
@@ -257,12 +263,13 @@ export class HubspotService {
     dealId: string,
     lineItems: SimplePublicObject[],
     contacts: SimplePublicObject[],
+    isPaid?: boolean,
   ): SimplePublicObjectInputForCreate {
     return {
       properties: {
         hs_title: `Invoice from Odoo - ${quotationId}`,
         hs_currency: 'AED', // USD OR AED
-        hs_invoice_status: 'draft',
+        hs_invoice_status: isPaid ? 'paid' : 'draft',
         hs_invoice_date: new Date().toISOString(),
         odoo_quotation_id: quotationId ?? '',
         odoo_invoice_id: invoiceId ?? '',
@@ -285,10 +292,19 @@ export class HubspotService {
     deal: SimplePublicObjectWithAssociations | SimplePublicObject,
     lineItems: SimplePublicObject[],
     contact: SimplePublicObject[],
+    isPaid?: boolean,
   ) {
-    const payload = this.buildCreateInvoicePayload(quotation.quotation_id as string, quotation.invoice_id as string, deal.id, lineItems, contact);
+    const payload = this.buildCreateInvoicePayload(quotation.quotation_id as string, quotation.invoice_id as string, deal.id, lineItems, contact, false);
+
     this.logger.debug(`${this.processInvoice.name} payload=${JSON.stringify(payload)}`);
-    return await this.createInVoice(jobId, payload);
+
+    const invoice = await this.createInVoice(jobId, payload);
+    if (invoice?.id && isPaid)
+      return await this.updateInvoiceById(jobId, invoice.id, {
+        hs_invoice_status: 'paid',
+      });
+
+    return invoice;
   }
 
   public async updateProductById(jobId: string, productId: string, properties: Record<string, any>) {

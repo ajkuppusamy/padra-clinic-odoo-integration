@@ -403,6 +403,48 @@ export class OdooService {
     return created?.contact_id ?? '';
   }
 
+  async partnerSyncProcess(jobId: string, properties: Record<string, any>): Promise<string> {
+    const payload = this.buildContactProperties(properties);
+
+    if (!payload.email) {
+      this.logger.warn(`[partnerSyncProcess] Missing email, jobId: ${jobId}`);
+      return '';
+    }
+
+    const partnerSearchPayload: SearchReadParams = {
+      domain: [['email', '=', payload.email]],
+      fields: ['display_name', 'email', 'id'],
+      limit: 1,
+    };
+
+    const existingPartners = await this.partnerSearch(jobId, partnerSearchPayload, payload.email);
+
+    const existingPartnerId = existingPartners?.[0]?.id;
+
+    if (existingPartnerId) {
+      this.logger.log(`[partnerSyncProcess] Partner already exists, email: ${payload.email}, partnerId: ${existingPartnerId}, jobId: ${jobId}`);
+
+      return existingPartnerId.toString();
+    }
+
+    delete payload.state;
+    delete payload.postal_code;
+    delete payload.country;
+
+    const createdPartners = await this.partnerCreate(jobId, { vals_list: [payload] }, payload.email);
+
+    const createdPartnerId = createdPartners?.[0];
+
+    if (!createdPartnerId) {
+      this.logger.error(`[partnerSyncProcess] Partner creation failed, email: ${payload.email}, jobId: ${jobId}`);
+      return '';
+    }
+
+    this.logger.log(`[partnerSyncProcess] Partner created successfully, email: ${payload.email}, partnerId: ${createdPartnerId}, jobId: ${jobId}`);
+
+    return createdPartnerId.toString();
+  }
+
   async createContact(jobId: string, properties: CreateContactRequest): Promise<CreateContactResponse> {
     return this.executeTrackedRequest(jobId, RequestType.CREATE_CONTACT, properties.email, '/contact', 'POST', properties, () => this.odooLibService.createContact(properties));
   }

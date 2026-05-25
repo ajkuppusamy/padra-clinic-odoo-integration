@@ -340,13 +340,21 @@ export class IntegrationService {
 
     const { deal, contacts, lineItems } = await this.hubspotService.getDealDetails(dealId, jobId);
 
-    const isAlreadyExistDeal = await this.hubspotService.fetchAssociatedDealIdByInVoiceId(invoiceId as string, jobId);
+    // const isAlreadyExistDeal = await this.hubspotService.fetchAssociatedDealIdByInVoiceId(invoiceId as string, jobId);
+    // if (isAlreadyExistDeal) return await this.handleSkip(jobId, context, `${invoiceId} - invoice already created and associated with deal - ${isAlreadyExistDeal}`);
+    const isAreadExistInvoiceId = await this.hubspotService.fetchInVoiceByOdooInVoiceId(jobId, invoiceId as string);
 
-    if (isAlreadyExistDeal) return await this.handleSkip(jobId, context, `${invoiceId} - invoice already created and associated with deal - ${isAlreadyExistDeal}`);
+    if (isAreadExistInvoiceId) {
+      const isPaid = event.state === 'posted';
 
+      await this.hubspotService.updateInvoiceById(jobId, isAreadExistInvoiceId, {
+        hs_invoice_status: isPaid ? 'paid' : 'draft',
+      });
+      return await this.handleSkip(jobId, context, `${invoiceId} - Invoice already exist with id ${isAreadExistInvoiceId}, updated status to ${isPaid ? 'paid' : 'draft'}`);
+    }
     await this.handleInvoiceProcess(jobId, deal, event, invoiceId as string, contacts ?? [], lineItems ?? []);
 
-    if (isCompleted) await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
+    await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
 
     this.logger.debug(`[${context}] Completed`, { jobId });
   }
@@ -522,7 +530,7 @@ export class IntegrationService {
       this.logger.debug(`total Line Items: ${lineItems.length}`);
       if (!lineItems.length) return await this.handleSkip(jobId, context, 'No Associated LinItems');
 
-      const { hsOwner, dealOwnerPartner, callCenterDealOwnerPartner } = await this.getOwnerPartnerDetails(jobId, deal);
+      const { hsOwner, dealOwnerPartnerId, callCenterDealOwnerPartnerId } = await this.upsertOwnerPartners(jobId, deal);
 
       const quote = (await this.odooService.buildOdooObjectPayload(
         deal,
@@ -531,8 +539,8 @@ export class IntegrationService {
         'deals',
         {
           contactId: odooContactId,
-          call_centre_deal_owner_id: callCenterDealOwnerPartner?.[0]?.id,
-          deal_owner_id: dealOwnerPartner?.[0]?.id,
+          call_centre_deal_owner_id: callCenterDealOwnerPartnerId,
+          deal_owner_id: dealOwnerPartnerId,
           odooServicePlanTypeId: odooServicePlanTypeId as string,
         },
         lineItems,
@@ -587,7 +595,7 @@ export class IntegrationService {
 
   private async getAnalyticAccountByServiceType(jobId: string, context: string, companyId: string, deal: SimplePublicObjectWithAssociations): Promise<string | void> {
     this.logger.debug(`${this.getAnalyticAccountByServiceType.name} - Analytic account search initiated based on service type`);
-    const odooAnalyticAccountPlanId = Number(this.configService.get<number | string>('ODOO_ANALYTIC_PLAN_ID') || 0);
+    const odooAnalyticAccountPlanId = await Number(this.configService.get<number | string>('ODOO_ANALYTIC_PLAN_ID') || 0);
 
     //if (!odooAnalyticAccountPlanId) return await this.handleSkip(jobId, context, 'Odoo Analytic Account Plan Id Not Found');
 
@@ -612,6 +620,8 @@ export class IntegrationService {
     const serviceType = deal.properties.service_type as unknown as string;
 
     const odooServicePlanTypeId = analyticAccounts?.find((a) => a?.display_name === serviceType)?.id?.toString();
+
+    this.logger.debug(`${this.getAnalyticAccountByServiceType.name} - Service type from deal: ${serviceType} - Mapped Analytic Account Id: ${odooServicePlanTypeId}`);
 
     // if (!odooServicePlanTypeId) return await this.handleSkip(jobId, context, `No Analytic Account Found for service type : ${serviceType}`);
 
@@ -669,6 +679,57 @@ export class IntegrationService {
       callCenterOwner,
       dealOwnerPartner,
       callCenterDealOwnerPartner,
+    };
+  }
+
+  private async upsertOwnerPartners(
+    jobId: string,
+    deal: SimplePublicObjectWithAssociations,
+  ): Promise<{
+    hsOwner: Partial<PublicOwner>;
+    callCenterOwner: Partial<PublicOwner>;
+    dealOwnerPartnerId?: number;
+    callCenterDealOwnerPartnerId?: number;
+  }> {
+    let hsOwner: Partial<PublicOwner> = {};
+    let callCenterOwner: Partial<PublicOwner> = {};
+
+    let dealOwnerPartnerId: number | undefined;
+    let callCenterDealOwnerPartnerId: number | undefined;
+
+    if (deal?.properties?.hubspot_owner_id) {
+      hsOwner = await this.hubspotService.fetchOwnerById(jobId, deal.properties.hubspot_owner_id as string);
+    }
+
+    if (deal?.properties?.call_center_deal_owner) {
+      callCenterOwner = await this.hubspotService.fetchOwnerById(jobId, deal.properties.call_center_deal_owner as string);
+    }
+
+    if (hsOwner?.email) {
+      dealOwnerPartnerId = Number(
+        await this.odooService.partnerSyncProcess(jobId, {
+          email: hsOwner.email,
+          firstname: hsOwner.firstName,
+          lastname: hsOwner.lastName,
+        }),
+      );
+    }
+
+    if (callCenterOwner?.email) {
+      callCenterDealOwnerPartnerId = Number(
+        await this.odooService.partnerSyncProcess(jobId, {
+          email: callCenterOwner.email,
+          firstname: callCenterOwner.firstName,
+          lastname: callCenterOwner.lastName,
+        }),
+      );
+    }
+
+    return {
+      hsOwner,
+      callCenterOwner,
+      dealOwnerPartnerId,
+      callCenterDealOwnerPartnerId,
     };
   }
 

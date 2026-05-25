@@ -22,6 +22,7 @@ export enum RequestType {
   FETCH_INVOICE = 'fetch_invoice',
   FETCH_OWNER = 'fetch_owner',
   FETCH_QUOTE_TEMPLATE = 'fetch_quote_template',
+  UPDATE_INVOICE = 'update_invoice',
 }
 
 export enum RequestStatus {
