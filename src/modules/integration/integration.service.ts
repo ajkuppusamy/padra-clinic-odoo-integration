@@ -346,14 +346,14 @@ export class IntegrationService {
     // if (isAlreadyExistDeal) return await this.handleSkip(jobId, context, `${invoiceId} - invoice already created and associated with deal - ${isAlreadyExistDeal}`);
     const isAreadExistInvoiceId = await this.hubspotService.fetchInVoiceByOdooInVoiceId(jobId, invoiceId as string);
 
-    const isPaid = event.state === 'posted';
+    const isOpen = event.state === 'posted';
     if (isAreadExistInvoiceId) {
       await this.hubspotService.updateInvoiceById(jobId, isAreadExistInvoiceId, {
-        hs_invoice_status: isPaid ? 'paid' : 'draft',
+        hs_invoice_status: isOpen ? 'open' : 'draft',
       });
-      return await this.handleSkip(jobId, context, `${invoiceId} - Invoice already exist with id ${isAreadExistInvoiceId}, updated status to ${isPaid ? 'paid' : 'draft'}`);
+      return await this.handleSkip(jobId, context, `${invoiceId} - Invoice already exist with id ${isAreadExistInvoiceId}, updated status to ${isOpen ? 'open' : 'draft'}`);
     }
-    await this.handleInvoiceProcess(jobId, deal, event, invoiceId as string, contacts ?? [], lineItems ?? [], isPaid);
+    await this.handleInvoiceProcess(jobId, deal, event, invoiceId as string, contacts ?? [], lineItems ?? [], !isOpen);
 
     await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
 
