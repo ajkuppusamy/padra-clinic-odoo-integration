@@ -13,6 +13,10 @@ export enum PaymentMethod {
   // Online Paymnet Methods
   IFINANCE = 'iFinance',
   BEAUTIFI = 'Beautifi',
+
+  TABI = 'Tabi',
+  TAMARA = 'Tamara',
+  MYFATHOR = 'Myfathor',
 }
 
 export class Quotation {
