@@ -1,5 +1,22 @@
 export const HUBSPOT_OBJECT_PROPERTIES: Record<string, string[]> = {
-  contacts: ['firstname', 'lastname', 'email', 'phone', 'company', 'jobtitle', 'lifecyclestage', 'createdate', 'hs_object_id', 'odoo_contact_id'],
+  contacts: [
+    'firstname',
+    'lastname',
+    'email',
+    'phone',
+    'company',
+    'jobtitle',
+    'lifecyclestage',
+    'createdate',
+    'hs_object_id',
+    'odoo_contact_id',
+    'mrn_number',
+    'city',
+    'state',
+    'hs_state_code',
+    'country',
+    'hs_country_region_code',
+  ],
 
   companies: ['name', 'domain', 'industry', 'phone', 'city', 'state', 'country', 'website', 'createdate', 'hs_object_id'],
 
@@ -61,6 +78,10 @@ export const HUBSPOT_OBJECT_PROPERTIES: Record<string, string[]> = {
     'prp_session_13_status',
     'prp_session_14_status',
     'prp_session_15_status',
+    'sales_order_company_name',
+    'discount_type',
+    'percentage_discount',
+    'fixed_amount_discount',
   ],
 
   line_items: ['name', 'quantity', 'price', 'amount', 'hs_product_id', 'createdate', 'hs_object_id', 'odoo_product_id'],

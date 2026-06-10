@@ -25,7 +25,6 @@ import { ConfigService } from '@nestjs/config';
 import { HubspotService } from '@modules/hubspot/hubspot.service';
 import { OdooWebhookHandleDto } from './dto/odoo-webhook.dto';
 import { SimplePublicObject } from '@hubspot/api-client/lib/codegen/crm/companies';
-import { getMappedCompanyId } from '@libs/odoo/config/company.config';
 
 @Injectable()
 export class OdooService {
@@ -505,6 +504,24 @@ export class OdooService {
     );
   }
 
+  async processCountry(jobId: string, country: string, property: string): Promise<string | number> {
+    const payload: SearchReadParams = {
+      domain: [['display_name', 'ilike', country]],
+      fields: ['display_name', 'id'],
+    };
+    const countryData = await this.countrySearch(jobId, payload, property);
+    return countryData[0]?.id ?? '';
+  }
+
+  async procesState(jobId: string, state: string, property: string): Promise<string | number> {
+    const payload: SearchReadParams = {
+      domain: [['display_name', 'ilike', state]],
+      fields: ['display_name', 'id'],
+    };
+    const countryData = await this.stateSearch(jobId, payload, property);
+    return countryData[0]?.id ?? '';
+  }
+
   async buildOdooObjectPayload(
     properties: SimplePublicObject,
     companyId?: number | string,
@@ -519,6 +536,7 @@ export class OdooService {
     lineItems?: SimplePublicObject[],
     odooQuoteId?: number,
     odooInvoiceId?: string | number,
+    jobId?: string,
   ): Promise<ValsList | SearchReadParams | QuoteCvtInvoice> {
     const email = properties?.properties?.email;
     const pipeline = properties?.properties?.pipeline;
@@ -532,6 +550,10 @@ export class OdooService {
     }
 
     if (object === 'contacts') {
+      const state = properties?.properties?.state?.toLowerCase() ?? '';
+      const country = properties?.properties?.country?.toLowerCase() ?? '';
+      const stateId = await this.procesState(jobId as string, state as string, 'state');
+      const coutryId = await this.processCountry(jobId as string, country as string, 'country');
       return {
         vals_list: [
           {
@@ -542,6 +564,10 @@ export class OdooService {
             street: properties?.properties?.street ?? '',
             city: properties?.properties?.city ?? '',
             zip: properties?.properties?.zip ?? '',
+            mrn_no: properties?.properties?.mrn_number,
+            contact_address: properties?.properties?.address ?? '',
+            country_id: coutryId,
+            state_id: stateId,
           },
         ],
       };
@@ -686,6 +712,48 @@ export class OdooService {
     return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/res.company/search_read', 'POST', properties, () =>
       this.odooLibService.search(properties, '/res.company/search_read'),
     ) as unknown as CompanySearchResponse[];
+  }
+
+  async paymentSearch(jobId: string, properties: SearchReadParams, property: string): Promise<BaseSearch[]> {
+    return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/account.payment', 'POST', properties, () =>
+      this.odooLibService.search(properties, '/account.payment/search_read'),
+    ) as unknown as BaseSearch[];
+  }
+
+  async countrySearch(jobId: string, properties: SearchReadParams, property: string): Promise<BaseSearch[]> {
+    return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/res.country/search_read', 'POST', properties, () =>
+      this.odooLibService.search(properties, '/res.country/search_read'),
+    ) as unknown as BaseSearch[];
+  }
+
+  async stateSearch(jobId: string, properties: SearchReadParams, property: string): Promise<BaseSearch[]> {
+    return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/res.country.state/search_read', 'POST', properties, () =>
+      this.odooLibService.search(properties, '/res.country.state/search_read'),
+    ) as unknown as BaseSearch[];
+  }
+
+  async readCompanyByIds(jobId: string, properties: SearchReadParams, property: string): Promise<CompanySearchResponse[]> {
+    return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/res.company', 'POST', properties, () =>
+      this.odooLibService.search(properties, '/res.company/read'),
+    ) as unknown as CompanySearchResponse[];
+  }
+
+  async salesOrderDiscountSearch(jobId: string, properties: SearchReadParams, property: string): Promise<BaseSearch[]> {
+    return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/sale.order.discount/search_read', 'POST', properties, () =>
+      this.odooLibService.search(properties, '/sale.order.discount/search_read'),
+    ) as unknown as BaseSearch[];
+  }
+
+  async salesOrderDiscountCreate(jobId: string, properties: ValsList, property: string): Promise<number[]> {
+    return this.executeTrackedRequest(jobId, RequestType.CREATE_DISCOUNT, property, '/sale.order.discount/create', 'POST', properties, () =>
+      this.odooLibService.search(properties, '/sale.order.discount/create'),
+    ) as unknown as number[];
+  }
+
+  async salesOrderDiscountConformation(jobId: string, properties: { ids: number[]; context: {} }, property: string): Promise<null> {
+    return this.executeTrackedRequest(jobId, RequestType.CREATE_DISCOUNT, property, '/sale.order.discount/action_apply_discount', 'POST', properties, () =>
+      this.odooLibService.search(properties, '/sale.order.discount/action_apply_discount'),
+    ) as unknown as null;
   }
 
   async accountInvoiceCreate(jobId: string, properties: ValsList, property: string): Promise<number[]> {

@@ -3,7 +3,9 @@ import { QueueRepository } from '@common/repositories';
 import { toHubspotDateValue } from '@common/utils';
 import { SimplePublicObject, SimplePublicObjectWithAssociations } from '@hubspot/api-client/lib/codegen/crm/companies';
 import { PublicOwner } from '@hubspot/api-client/lib/codegen/crm/owners/models/all';
-import { ContactSearchResponse, CreateQuotationResponse, SalesOrder, SearchReadParams, ValsList } from '@libs/odoo/interfaces';
+import { HubDiscountType } from '@libs/hubspot/enums/discount-type.enum';
+import { DiscountType } from '@libs/odoo/enums';
+import { ContactSearchResponse, CreateDiscount, CreateQuotationResponse, SalesOrder, SearchReadParams, ValsList } from '@libs/odoo/interfaces';
 import { PaymentMethod } from '@modules/hubspot/dto/quotation-flow.dto';
 import { HubspotService } from '@modules/hubspot/hubspot.service';
 import { CloseServiceWebhook, InvoiceCreatedEvent, PaymentCreatedEvent, ProductCreateEvent, ProductUpdateEvent, QuotationStatusUpdateEvent } from '@modules/odoo/interfaces';
@@ -291,6 +293,115 @@ export class IntegrationService {
     this.logger.log(`Invoice Created  : ${JSON.stringify(invoice)}`);
   }
 
+  private isSalesOrderIsDiscounted(deal: SimplePublicObjectWithAssociations): boolean {
+    this.logger.debug(`${this.isSalesOrderIsDiscounted.name}`);
+    const discountType = deal?.properties?.discount_type as unknown as HubDiscountType;
+    return [HubDiscountType.FIXED_AMOUNT, HubDiscountType.PERCENTAGE].includes(discountType);
+  }
+
+  public async handlingDiscountProcess(jobId: string, deal: SimplePublicObjectWithAssociations) {
+    const dealId = deal?.id;
+
+    const { discount_type, percentage_discount, fixed_amount_discount } = deal?.properties;
+
+    const quoteId = await this.hubspotService.fetchAssociatedQuoteByDealId(dealId, jobId);
+
+    if (!quoteId) {
+      await this.handleSkip(jobId, this.handlingDiscountProcess.name, `Quote Not Found. Deal Id: ${dealId}`);
+      return;
+    }
+
+    const quote = await this.hubspotService.fetchQuote(jobId, quoteId as string);
+
+    const { odoo_quotation_id } = quote?.properties;
+
+    if (!odoo_quotation_id) {
+      await this.handleSkip(jobId, this.handlingDiscountProcess.name, `Deal and Quote exist but Odoo Quotation Id is missing`);
+      return;
+    }
+
+    const discountType = discount_type as HubDiscountType;
+
+    const discountPayload: CreateDiscount = {
+      sale_order_id: Number(odoo_quotation_id),
+    };
+
+    if (discountType === HubDiscountType.FIXED_AMOUNT) {
+      discountPayload.discount_amount = Number(fixed_amount_discount || 0);
+      discountPayload.discount_type = DiscountType.FIXED_AMOUNT;
+    }
+
+    if (discountType === HubDiscountType.PERCENTAGE) {
+      // Example: "12.5" -> 12.5 (float)
+      discountPayload.discount_percentage = parseFloat(String(percentage_discount || 0));
+      discountPayload.discount_type = DiscountType.GLOBAL_DISCOUNT;
+    }
+
+    const applyDiscount: ValsList = {
+      vals_list: [discountPayload],
+    };
+
+    const discount = await this.odooService.salesOrderDiscountCreate(jobId, applyDiscount, discountType);
+    this.logger.debug(`Sales Order Sucess Fully Discount Applied : ${JSON.stringify(discount)}`);
+    const discountId = discount?.[0] as number;
+
+    if (!discountId) {
+      await this.handleSkip(jobId, this.handlingDiscountProcess.name, `Discount record not created`);
+      return;
+    }
+
+    const conformation = await this.odooService.salesOrderDiscountConformation(jobId, { ids: [discountId], context: {} }, 'id');
+
+    this.logger.debug(`Conformation data : ${JSON.stringify(conformation)}`);
+
+    await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
+    return;
+  }
+
+  private async isAdvancedPayment(jobId: string, event: PaymentCreatedEvent, eventName?: string): Promise<boolean> {
+    this.logger.debug(`${this.isAdvancedPayment.name} : ${eventName}`);
+    const payload: SearchReadParams = {
+      domain: [['id', '=', `${event?.payment_id}`]],
+      fields: ['display_name', 'is_advance_payment', 'sale_order_id'],
+    };
+    const paymentSearch = await this.odooService.paymentSearch(jobId, payload, 'is_advance_payment');
+    const isAdvancePayment = paymentSearch?.[0]?.is_advance_payment;
+    this.logger.debug(`${this.isAdvancedPayment.name} : ${eventName}`, { isAdvancePayment });
+    return isAdvancePayment === true || isAdvancePayment === 'true';
+  }
+
+  private async handlingAdvancePayment(jobId: string, event: PaymentCreatedEvent, eventName?: string) {
+    this.logger.debug(`${this.logger.debug(`${this.handlingAdvancePayment.name}`)}`);
+    const payload: SearchReadParams = {
+      domain: [['id', '=', `${event?.payment_id}`]],
+      fields: ['display_name', 'is_advance_payment', 'sale_order_id'],
+    };
+    const paymentSearch = await this.odooService.paymentSearch(jobId, payload, 'is_advance_payment');
+    const saleOrderId = paymentSearch?.[0]?.sale_order_id?.[0];
+    if (!saleOrderId) {
+      await this.handleSkip(jobId, this.handlingAdvancePayment.name, 'Sale order id not found for advance payment');
+      return;
+    }
+    const quoteId = await this.hubspotService.fetchQuoteByOdooQuoteId(jobId, String(saleOrderId));
+    if (!quoteId) {
+      await this.handleSkip(jobId, this.handlingAdvancePayment.name, `Quote not found for sale order id : ${saleOrderId}`);
+      return;
+    }
+
+    const dealId = await this.hubspotService.fetchAssociatedDealIdByQuoteId(quoteId, jobId);
+    if (!dealId) {
+      await this.handleSkip(jobId, this.handlingAdvancePayment.name, `Deal not found based on Quote Id : ${quoteId}`);
+      return;
+    }
+    const dealProperties: Record<string, any> = {
+      odoo_payment_amount: event.amount,
+      odoo_last_payment_date: toHubspotDateValue(event?.payment_date),
+    };
+    await this.updateDeal(jobId, dealId, dealProperties);
+    await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
+    return;
+  }
+
   /**
    * =========================
    * PAYMENT FLOW
@@ -300,6 +411,13 @@ export class IntegrationService {
     const context = this.handlingPaymentCreateEvent.name;
 
     this.logger.debug(`[${context}] Started`, { jobId, eventName });
+
+    const isAdvancePayment = await this.isAdvancedPayment(jobId, event, eventName);
+
+    if (isAdvancePayment) {
+      await this.handlingAdvancePayment(jobId, event, eventName);
+      return;
+    }
 
     const invoiceId = await this.getInvoiceId(jobId, event, context);
     if (!invoiceId) return;
@@ -420,13 +538,15 @@ export class IntegrationService {
   }
 
   public async odooUpsertContactProcess(jobId: string, contact: SimplePublicObject, companyId?: string): Promise<number | null> {
-    const searchPayload = (await this.odooService.buildOdooObjectPayload(contact, companyId)) as ValsList | SearchReadParams;
+    const searchPayload = (await this.odooService.buildOdooObjectPayload(contact, companyId, undefined, 'contacts', {}, [], undefined, undefined, jobId)) as
+      | ValsList
+      | SearchReadParams;
     const contactRead = await this.odooService.partnerSearch(jobId, searchPayload as SearchReadParams, 'email');
     if (contactRead.length) {
       await this.hubspotService.updateContactById(jobId, contact.id, { odoo_contact_id: contactRead?.[0]?.id });
       return contactRead?.[0]?.id;
     }
-    const writeContactPayload = (await this.odooService.buildOdooObjectPayload(contact, companyId, true, 'contacts')) as ValsList;
+    const writeContactPayload = (await this.odooService.buildOdooObjectPayload(contact, companyId, true, 'contacts', {}, [], undefined, undefined, jobId)) as ValsList;
     const createContact = await this.odooService.partnerCreate(jobId, writeContactPayload, 'email');
     await this.hubspotService.updateContactById(jobId, contact.id, { odoo_contact_id: createContact?.[0] });
     return createContact?.[0];
@@ -516,6 +636,14 @@ export class IntegrationService {
     try {
       const { deal, contacts, lineItems } = await this.hubspotService.getDealDetails(dealId, jobId);
 
+      const isDiscounted = await this.isSalesOrderIsDiscounted(deal);
+
+      if (isDiscounted) {
+        await this.handlingDiscountProcess(jobId, deal);
+        this.logger.debug(`Discount is Applied.........`);
+        return;
+      }
+
       this.logger.log(`[${context}] Deal data fetched`, {
         jobId,
         contactsCount: contacts.length,
@@ -529,7 +657,16 @@ export class IntegrationService {
 
       // const companyId = await this.dealPipeLineByGetCompanyId(jobId, deal);
 
-      const companyId = await this.getCompanyIdFromPipeline(jobId, context, deal);
+      const companyId = (await this.getCompanyIdFromPipeline(jobId, context, deal)) as string;
+
+      if (companyId) {
+        const payload: SearchReadParams = {
+          ids: [Number(companyId)],
+          fields: ['display_name', 'name', 'create_date'],
+        };
+        const companyData = await this.odooService.readCompanyByIds(jobId, payload, 'id');
+        await this.updateDeal(jobId, dealId, { sales_order_company_name: companyData?.[0]?.display_name });
+      }
 
       const odooServicePlanTypeId = await this.getAnalyticAccountByServiceType(jobId, context, companyId, deal);
 
@@ -591,7 +728,7 @@ export class IntegrationService {
     }
   }
 
-  private async getCompanyIdFromPipeline(jobId: string, context: string, deal: SimplePublicObjectWithAssociations) {
+  private async getCompanyIdFromPipeline(jobId: string, context: string, deal: SimplePublicObjectWithAssociations): Promise<string | void | null> {
     this.logger.debug(`${this.getCompanyIdFromPipeline.name} - Pipeline based company search initiated`);
     const pipelineCompanyMap = JSON.parse(this.configService.get<string>('HUBSPOT_PIPELINE_ODOO_COMPANY_MAP') || '{}');
 

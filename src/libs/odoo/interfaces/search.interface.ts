@@ -1,3 +1,4 @@
+import { DiscountType } from '../enums';
 export interface BaseSearch {
   id: number;
   display_name: string;
@@ -27,7 +28,7 @@ export interface InvoiceIds {
 }
 
 export interface ValsList {
-  vals_list: SalesOrder[] | Contact[] | Invoice[] | unknown[];
+  vals_list: SalesOrder[] | Contact[] | Invoice[] | unknown[] | CreateDiscount[];
 }
 
 export interface Contact {
@@ -80,4 +81,11 @@ export interface QuoteCvtInvoice {
 
 export interface InvoiceIds {
   invoice_ids: number[];
+}
+
+export interface CreateDiscount {
+  sale_order_id: number;
+  discount_type?: DiscountType;
+  discount_amount?: number | string;
+  discount_percentage?: number;
 }
