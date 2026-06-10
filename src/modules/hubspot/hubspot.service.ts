@@ -54,14 +54,15 @@ export class HubspotService {
           queueType: QueueType.WEBHOOK,
           sourceType: SourceType.HUBSPOT,
           status: QueueStatus.QUEUED,
-          event: event ?? 'deal_update',
+          event: event ?? data?.objectTypeId,
         }),
       );
-      await this.sqsProducerService.sendMessage(sqsUrl, queueRec?.jobId, data, 'deal_update');
+      const eventName = data?.objectTypeId === '0-3' ? 'deal_update' : 'contact_update';
+      await this.sqsProducerService.sendMessage(sqsUrl, queueRec?.jobId, data, eventName);
 
       this.logger.log(`[${method}] Queued`, {
         jobId: queueRec?.jobId,
-        dealId: data.objectId.toString(),
+        recordId: data?.objectId?.toString(),
       });
 
       return { success: true, jobId: queueRec?.jobId };
@@ -99,6 +100,12 @@ export class HubspotService {
   public async fetchDeal(dealId: string, jobId: string) {
     return this.executeTrackedRequest(jobId, RequestType.FETCH_DEAL, dealId, `/deals/${dealId}`, 'GET', {}, () =>
       this.hubspotLibService.getHubspotObjectData(HubspotObjects.DEALS, dealId, HUBSPOT_OBJECT_PROPERTIES[HubspotObjects.DEALS]),
+    );
+  }
+
+  public async fetchContact(contactId: string, jobId: string) {
+    return this.executeTrackedRequest(jobId, RequestType.FETCH_DEAL, contactId, `/contacts/${contactId}`, 'GET', {}, () =>
+      this.hubspotLibService.getHubspotObjectData(HubspotObjects.CONTACTS, contactId, HUBSPOT_OBJECT_PROPERTIES[HubspotObjects.CONTACTS]),
     );
   }
 

@@ -5,6 +5,7 @@ export enum SubscriptionType {
   DEAL_CREATION = 'deal.creation',
   DEAL_DELETION = 'deal.deletion',
   DEAL_PROPERTY_CHANGE = 'deal.propertyChange',
+  CONTACT_PROPERTY_CHANGE = 'contact.propertyChange',
 }
 
 export enum ChangeFlag {
@@ -37,7 +38,7 @@ export class HubspotWebhookDto {
   @IsNumber()
   @IsNotEmpty()
   @IsOptional()
-  appId!: number;
+  appId?: number;
 
   @ApiProperty({
     required: false,
@@ -48,7 +49,7 @@ export class HubspotWebhookDto {
   @IsNumber()
   @IsNotEmpty()
   @IsOptional()
-  eventId!: number;
+  eventId?: number;
 
   @ApiProperty({
     required: false,
@@ -59,7 +60,7 @@ export class HubspotWebhookDto {
   @IsString()
   @IsNotEmpty()
   @IsOptional()
-  subscriptionId!: number;
+  subscriptionId?: number;
 
   @ApiProperty({
     required: false,
@@ -70,7 +71,7 @@ export class HubspotWebhookDto {
   @IsString()
   @IsNotEmpty()
   @IsOptional()
-  portalId!: number;
+  portalId?: number;
   @ApiProperty({
     required: false,
     description: 'Event timestamp (milliseconds since epoch)',
@@ -80,7 +81,7 @@ export class HubspotWebhookDto {
   @IsNumber()
   @IsNotEmpty()
   @IsOptional()
-  occurredAt!: number;
+  occurredAt?: number;
 
   @ApiProperty({
     required: false,
@@ -91,7 +92,7 @@ export class HubspotWebhookDto {
   @IsEnum(SubscriptionType)
   @IsNotEmpty()
   @IsOptional()
-  subscriptionType!: SubscriptionType;
+  subscriptionType?: SubscriptionType;
 
   @ApiProperty({
     required: false,
@@ -113,7 +114,7 @@ export class HubspotWebhookDto {
   @IsNumber()
   @IsOptional()
   @IsNotEmpty()
-  objectId!: number;
+  objectId?: number;
 
   @ApiProperty({
     required: false,
@@ -154,7 +155,7 @@ export class HubspotWebhookDto {
   @IsEnum(ObjectType)
   @IsNotEmpty()
   @IsOptional()
-  objectType!: ObjectType;
+  objectType?: ObjectType;
 
   @ApiProperty({
     required: false,
@@ -165,7 +166,7 @@ export class HubspotWebhookDto {
   @IsString()
   @IsNotEmpty()
   @IsOptional()
-  objectTypeId!: string;
+  objectTypeId?: string;
 
   @ApiProperty({
     required: false,

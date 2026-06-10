@@ -58,6 +58,8 @@ export class AwsSqsConsumerService {
         case 'close_session':
           await this.integrationService.handlingCloseService(jobId, data);
           break;
+        case 'contact_update':
+          await this.integrationService.handlingContactProcess(jobId, data);
         default:
           this.logger.warn(`Unhandled eventName: ${eventName}`);
           await this.integrationService.handleSkip(jobId, this.sqsMessageHandler.name, `Unhandled eventName: ${eventName}`);

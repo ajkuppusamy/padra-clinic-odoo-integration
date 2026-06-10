@@ -6,6 +6,7 @@ import { PublicOwner } from '@hubspot/api-client/lib/codegen/crm/owners/models/a
 import { HubDiscountType } from '@libs/hubspot/enums/discount-type.enum';
 import { DiscountType } from '@libs/odoo/enums';
 import { ContactSearchResponse, CreateDiscount, CreateQuotationResponse, SalesOrder, SearchReadParams, ValsList } from '@libs/odoo/interfaces';
+import { HubspotWebhookDto } from '@modules/hubspot/dto';
 import { PaymentMethod } from '@modules/hubspot/dto/quotation-flow.dto';
 import { HubspotService } from '@modules/hubspot/hubspot.service';
 import { CloseServiceWebhook, InvoiceCreatedEvent, PaymentCreatedEvent, ProductCreateEvent, ProductUpdateEvent, QuotationStatusUpdateEvent } from '@modules/odoo/interfaces';
@@ -1007,6 +1008,14 @@ export class IntegrationService {
 
     await this.handlingServiceCloseSessions(jobId, event, deal);
 
+    return await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
+  }
+
+  public async handlingContactProcess(jobId: string, event: HubspotWebhookDto) {
+    this.logger.debug(`${this.handlingContactProcess.name} : ${jobId}`);
+    const recordId = event?.objectId?.toString() as string;
+    const contact = await this.hubspotService.fetchContact(recordId, jobId);
+    await this.odooUpsertContactProcess(jobId, contact);
     return await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
   }
 }
