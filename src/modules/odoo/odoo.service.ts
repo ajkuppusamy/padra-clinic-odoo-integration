@@ -506,20 +506,22 @@ export class OdooService {
 
   async processCountry(jobId: string, country: string, property: string): Promise<string | number> {
     const payload: SearchReadParams = {
-      domain: [['display_name', 'ilike', country]],
+      domain: [['display_name', 'Ilike', country]],
       fields: ['display_name', 'id'],
     };
     const countryData = await this.countrySearch(jobId, payload, property);
-    return countryData[0]?.id ?? '';
+    const id = countryData.find((v) => v.display_name?.toLowerCase() === country?.toLowerCase()?.trim())?.id;
+    return id ?? '';
   }
 
   async procesState(jobId: string, state: string, property: string): Promise<string | number> {
     const payload: SearchReadParams = {
-      domain: [['display_name', 'ilike', state]],
+      domain: [['display_name', 'Ilike', state]],
       fields: ['display_name', 'id'],
     };
-    const countryData = await this.stateSearch(jobId, payload, property);
-    return countryData[0]?.id ?? '';
+    const stateData = await this.stateSearch(jobId, payload, property);
+    const id = stateData.find((v) => v.display_name?.toLowerCase() === state?.toLowerCase()?.trim())?.id;
+    return id ?? '';
   }
 
   async buildOdooObjectPayload(
@@ -550,8 +552,8 @@ export class OdooService {
     }
 
     if (object === 'contacts') {
-      const state = properties?.properties?.state?.toLowerCase() ?? '';
-      const country = properties?.properties?.country?.toLowerCase() ?? '';
+      const state = properties?.properties?.state ?? '';
+      const country = properties?.properties?.country ?? '';
       const stateId = await this.procesState(jobId as string, state as string, 'state');
       const coutryId = await this.processCountry(jobId as string, country as string, 'country');
       return {
