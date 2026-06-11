@@ -258,12 +258,7 @@ export class IntegrationService {
     //   payload.stage = await this.configService.get<string>('HUBSPOT_DEAL_STAGE_CLOSED_WON');
     // }
 
-    this.logger.debug(`[buildPaymentUpdatePayload]`, {
-      existingStage: dealstage,
-      oldPaid: odoo_payment_amount,
-      newPaid: paidAmount,
-      dealAmount: totalAmount,
-    });
+    this.logger.debug(`[buildPaymentUpdatePayload]`, payload);
 
     return payload;
   }
