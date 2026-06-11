@@ -394,10 +394,8 @@ export class IntegrationService {
       await this.handleSkip(jobId, this.handlingAdvancePayment.name, `Deal not found based on Quote Id : ${quoteId}`);
       return;
     }
-    const dealProperties: Record<string, any> = {
-      odoo_payment_amount: event.amount,
-      odoo_last_payment_date: toHubspotDateValue(event?.payment_date),
-    };
+    const deal = await this.hubspotService.fetchDeal(dealId, jobId);
+    const dealProperties = this.buildPaymentUpdatePayload(deal, event);
     await this.updateDeal(jobId, dealId, dealProperties);
     await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
     return;
