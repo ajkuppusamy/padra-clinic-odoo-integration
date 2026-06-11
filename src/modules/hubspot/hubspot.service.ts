@@ -62,7 +62,7 @@ export class HubspotService {
       );
 
       const eventName = data.objectTypeId === '0-3' ? 'deal_update' : 'contact_update';
-      const deduplicationId = `${data.objectId}-${data.propertyName}-${data.eventId}`;
+      const deduplicationId = `${data.objectId}-${data.propertyName}-${data.appId}`;
       await this.sqsProducerService.sendMessage(sqsUrl, queueRec.jobId, data, eventName, deduplicationId);
 
       return {
