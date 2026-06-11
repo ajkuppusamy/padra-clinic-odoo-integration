@@ -36,9 +36,14 @@ export class HubspotService {
     private readonly responseRepository: ResponseRepository,
     private readonly hubspotLibService: HubspotLibService,
   ) {}
+  async sendSQS(data: HubspotWebhookDto | HubspotWebhookDto[]) {
+    this.logger.log('Received webhook payload', {
+      isArray: Array.isArray(data),
+      count: Array.isArray(data) ? data.length : 1,
+    });
 
-  async sendSQS(data: HubspotWebhookDto[]) {
-    return Promise.all(data.map((item) => this.queueWebhook(item)));
+    const webhookEvents = Array.isArray(data) ? data : [data];
+    return Promise.all(webhookEvents.map((item) => this.queueWebhook(item)));
   }
 
   private async queueWebhook(data: HubspotWebhookDto, event?: string) {
