@@ -28,6 +28,7 @@ export class AwsSqsConsumerService {
   @SqsMessageHandler(process.env.AWS_Q1_QUEUE_NAME as unknown as string, false)
   async sqsMessageHandler(message: Message): Promise<void> {
     try {
+      await this.awsSqsProducerService.deleteMessage(this.configService.get<string>('AWS_Q1_QUEUE_URL') ?? '', message?.['receiptHandle'] ?? message?.['ReceiptHandle'] ?? '');
       await new Promise((resolve) => setTimeout(resolve, 3000));
       this.logger.debug(`Message received from AWS SQS, ${JSON.stringify(message)}`);
 
@@ -65,8 +66,6 @@ export class AwsSqsConsumerService {
           await this.integrationService.handleSkip(jobId, this.sqsMessageHandler.name, `Unhandled eventName: ${eventName}`);
           break;
       }
-
-      await this.awsSqsProducerService.deleteMessage(this.configService.get<string>('AWS_Q1_QUEUE_URL') ?? '', message?.['receiptHandle'] ?? message?.['ReceiptHandle'] ?? '');
     } catch (error) {
       this.logger.error(`Failed to process message from queue ${process.env.AWS_Q1_QUEUE_NAME}`, (error as Error)?.stack ?? String(error));
     }

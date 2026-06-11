@@ -290,12 +290,13 @@ export class IntegrationService {
   }
 
   private isSalesOrderIsDiscounted(deal: SimplePublicObjectWithAssociations): boolean {
-    this.logger.debug(`${this.isSalesOrderIsDiscounted.name}`);
+    this.logger.debug(`${this.isSalesOrderIsDiscounted.name} -  Discount Type ${deal?.properties?.discount_type}`);
     const discountType = deal?.properties?.discount_type as unknown as HubDiscountType;
     return [HubDiscountType.FIXED_AMOUNT, HubDiscountType.PERCENTAGE].includes(discountType);
   }
 
   public async handlingDiscountProcess(jobId: string, deal: SimplePublicObjectWithAssociations) {
+    this.logger.debug(`${this.handlingDiscountProcess.name}`);
     const dealId = deal?.id;
 
     const { discount_type, percentage_discount, fixed_amount_discount } = deal?.properties;
@@ -641,7 +642,6 @@ export class IntegrationService {
 
       if (isDiscounted) {
         await this.handlingDiscountProcess(jobId, deal);
-        this.logger.debug(`Discount is Applied.........`);
         return;
       }
 

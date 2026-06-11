@@ -22,13 +22,13 @@ export class AwsSqsProducerService {
     });
   }
 
-  async sendMessage(queueUrl: string, msgGroupId: string = uuidv4(), payload: unknown, eventName: string): Promise<void> {
+  async sendMessage(queueUrl: string, msgGroupId: string = uuidv4(), payload: unknown, eventName: string, deplicationId?: string): Promise<void> {
     try {
       const finalJobId = msgGroupId || uuidv4();
 
       const groupId = String(eventName).toLowerCase();
 
-      const deduplicationId = String(`${finalJobId}-${Date.now()}`);
+      const deduplicationId = deplicationId ? deplicationId : String(`${finalJobId}-${Date.now()}`);
 
       const enrichedPayload = {
         jobId: finalJobId,
