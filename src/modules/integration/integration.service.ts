@@ -535,6 +535,32 @@ export class IntegrationService {
       // TODO: Update quote template based on client requirement
     }
 
+    if (event?.new_status === 'cancel') {
+      const dealId = await this.hubspotService.fetchAssociatedDealIdByQuoteId(quoteId as string, jobId);
+
+      if (!dealId) {
+        await this.handleSkip(jobId, context, `Reference id : ${referenceId} Deal Not Associated / Not Found`);
+        return;
+      }
+
+      const { properties } = await this.hubspotService.fetchDeal(dealId, jobId);
+      const existPipeline = properties?.pipeline as string;
+      const existStage = properties?.dealstage;
+      const branch = properties?.branch;
+      const pipelineStageMap = JSON.parse(this.configService.get<string>('HUBSPOT_PIPELINE_ID_TO_CLOSE_LOST_STAGE_ID_MAP') || '{}');
+      const closedLostId = pipelineStageMap[existPipeline];
+      this.logger.debug(
+        `${this.handlingQuotaionStatus.name} - Existing PipeLine : ${existPipeline} , Stage : ${existStage} , branch : ${branch} --> Pipeline Id : ${closedLostId}`,
+      );
+
+      const updateProperties = {
+        dealstage: closedLostId,
+      };
+      await this.hubspotService.updateDealById(jobId, dealId, updateProperties);
+      await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
+      return;
+    }
+
     await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
     this.logger.debug(`[${context}] Completed`, { jobId });
   }
