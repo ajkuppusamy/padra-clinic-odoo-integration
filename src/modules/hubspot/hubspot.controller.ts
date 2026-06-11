@@ -61,7 +61,7 @@ export class HubspotController {
       },
     },
   })
-  async sendQuotationFlow(@Body() body: HubspotWebhookDto) {
+  async sendQuotationFlow(@Body() body: HubspotWebhookDto[]) {
     return this.hubspotService.sendSQS(body);
   }
 

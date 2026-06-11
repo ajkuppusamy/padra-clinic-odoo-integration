@@ -37,16 +37,14 @@ export class HubspotService {
     private readonly hubspotLibService: HubspotLibService,
   ) {}
 
-  async sendSQS(data: HubspotWebhookDto, event?: string) {
-    const method = this.sendSQS.name;
-    const sqsUrl = this.configService.get<string>('AWS_Q1_QUEUE_URL') ?? '';
+  async sendSQS(data: HubspotWebhookDto[]) {
+    return Promise.all(data.map((item) => this.queueWebhook(item)));
+  }
 
-    if (!sqsUrl) {
-      this.logger.error(`[${method}] Missing SQS URL`);
-      throw new Error('SQS configuration error');
-    }
-
+  private async queueWebhook(data: HubspotWebhookDto, event?: string) {
     try {
+      const sqsUrl = this.configService.get<string>('AWS_Q1_QUEUE_URL') ?? '';
+
       const queueRec = await this.queueRepository.saveQueueItem(
         this.queueRepository.create({
           payload: data,
@@ -54,23 +52,23 @@ export class HubspotService {
           queueType: QueueType.WEBHOOK,
           sourceType: SourceType.HUBSPOT,
           status: QueueStatus.QUEUED,
-          event: event ?? data?.objectTypeId,
+          event: event ?? data.objectTypeId,
         }),
       );
-      const eventName = data?.objectTypeId === '0-3' ? 'deal_update' : 'contact_update';
-      await this.sqsProducerService.sendMessage(sqsUrl, queueRec?.jobId, data, eventName);
 
-      this.logger.log(`[${method}] Queued`, {
-        jobId: queueRec?.jobId,
-        recordId: data?.objectId?.toString(),
-      });
+      const eventName = data.objectTypeId === '0-3' ? 'deal_update' : 'contact_update';
 
-      return { success: true, jobId: queueRec?.jobId };
-    } catch (error) {
-      this.logger.error(`[${method}] Failed`, {
-        error: error?.['message'],
-      });
-      return { success: false, error: error?.['message'] };
+      await this.sqsProducerService.sendMessage(sqsUrl, queueRec.jobId, data, eventName);
+
+      return {
+        success: true,
+        jobId: queueRec.jobId,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message,
+      };
     }
   }
 
