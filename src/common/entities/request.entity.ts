@@ -57,7 +57,7 @@ export class Request extends BaseModel {
   @Column({ name: 'method', type: 'varchar', length: 10, default: 'POST' })
   method!: string;
 
-  @Column({ name: 'payload', type: 'jsonb' })
+  @Column({ name: 'payload', type: 'jsonb', nullable: false, default: {} })
   payload!: any;
 
   @Column({ name: 'status', type: 'enum', enum: RequestStatus, default: RequestStatus.PENDING })
