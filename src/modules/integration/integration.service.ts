@@ -390,7 +390,7 @@ export class IntegrationService {
       return;
     }
     const deal = await this.hubspotService.fetchDeal(dealId, jobId);
-    const dealProperties = this.buildPaymentUpdatePayload(deal, event);
+    const dealProperties = await this.buildPaymentUpdatePayload(deal, event);
     this.logger.debug('dealProperties before updateDeal:', {
       jobId,
       dealId,
