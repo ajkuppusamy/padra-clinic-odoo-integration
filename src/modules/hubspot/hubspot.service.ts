@@ -7,6 +7,7 @@ import { QueueStatus, QueueType, SourceType, RequestType, RequestStatus, Respons
 import { HubspotObjects } from '@common/enums';
 import {
   AssociationSpecAssociationCategoryEnum,
+  BatchInputSimplePublicObjectBatchInputForCreate,
   FilterGroup,
   FilterOperatorEnum,
   PublicObjectSearchRequest,
@@ -246,6 +247,12 @@ export class HubspotService {
   public async createQuote(jobId: string, properties: SimplePublicObjectInputForCreate) {
     return this.executeTrackedRequest(jobId, RequestType.CREATE_QUOTE, null, `/quotes`, 'POST', properties, () =>
       this.hubspotLibService.createHubspotObject(HubspotObjects.QUOTES, properties),
+    );
+  }
+
+  public async createBatchLineItems(jobId: string, properties: BatchInputSimplePublicObjectBatchInputForCreate) {
+    return this.executeTrackedRequest(jobId, RequestType.CREATE_LINEITEMS, null, '/line_items/batch/create', 'POST', properties, () =>
+      this.hubspotLibService.createBatchObject(HubspotObjects.LINE_ITEMS, properties),
     );
   }
 
@@ -567,7 +574,7 @@ export class HubspotService {
       hs_title: properties?.hs_title ?? properties?.dealname,
       hs_status: 'DRAFT',
       hs_language: 'en',
-      hs_currency: properties?.hs_currency ?? 'AED', // USD Or AED
+      hs_currency: properties?.deal_currency_code ?? 'AED', // USD Or AED
       hs_expiration_date: properties?.hs_expiration_date ?? expiredDate,
       odoo_quotation_id: properties?.quotationId ?? '',
 

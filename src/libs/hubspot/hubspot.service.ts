@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Client as HubspotClient } from '@hubspot/api-client';
 import {
+  BatchInputSimplePublicObjectBatchInputForCreate,
   BatchReadInputSimplePublicObjectId,
   BatchResponseSimplePublicObject,
   CollectionResponseSimplePublicObjectWithAssociationsForwardPaging,
@@ -314,6 +315,37 @@ export class HubspotService {
         return result as BatchResponseSimplePublicObject;
       } catch (error) {
         this.logger.error(`Failed to batch fetch ${objectType}: ${error?.['message']}`, error?.['stack']);
+        throw error;
+      }
+    });
+  }
+
+  /**
+   * Creates multiple HubSpot objects in a single batch request.
+   *
+   * This method leverages HubSpot's Batch Create API to create multiple objects
+   * in one request. It executes the request through an internal queue to
+   * control concurrency and rate limits.
+   *
+   * @param {HubspotObjects} objectType - The type of HubSpot object to create (e.g., contacts, deals, companies, line_items).
+   * @param {BatchInputSimplePublicObjectInputForCreate} batchInput - Payload containing the objects to create.
+   *
+   * @returns {Promise<BatchResponseSimplePublicObject>} A promise that resolves to the batch response containing the created objects.
+   *
+   * @throws {Error} Throws an error if the batch create operation fails.
+   */
+  async createBatchObject(objectType: HubspotObjects, batchInput: BatchInputSimplePublicObjectBatchInputForCreate): Promise<BatchResponseSimplePublicObject> {
+    return this.queue.add(async () => {
+      try {
+        this.logger.debug(`Batch creating ${objectType} | count: ${batchInput.inputs.length}`);
+
+        const result = await this.hubspotClient.crm.objects.batchApi.create(objectType, batchInput);
+
+        this.logger.log(`Created ${objectType} | returned: ${result?.results?.length}`);
+
+        return result as BatchResponseSimplePublicObject;
+      } catch (error) {
+        this.logger.error(`Failed to batch create ${objectType}: ${error?.['message']}`, error?.['stack']);
         throw error;
       }
     });

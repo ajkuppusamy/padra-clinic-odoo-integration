@@ -82,6 +82,7 @@ export const HUBSPOT_OBJECT_PROPERTIES: Record<string, string[]> = {
     'discount_type',
     'percentage_discount',
     'fixed_amount_discount',
+    'deal_currency_code',
   ],
 
   line_items: ['name', 'quantity', 'price', 'amount', 'hs_product_id', 'createdate', 'hs_object_id', 'odoo_product_id'],

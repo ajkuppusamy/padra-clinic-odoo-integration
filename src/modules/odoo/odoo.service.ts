@@ -727,6 +727,11 @@ export class OdooService {
       this.odooLibService.search(properties, '/res.country/search_read'),
     ) as unknown as BaseSearch[];
   }
+  async taxRead(jobId: string, properties: SearchReadParams): Promise<BaseSearch[]> {
+    return (await this.executeTrackedRequest(jobId, RequestType.TAX_READ, 'ids', `/account.tax/read`, 'POST', properties, () =>
+      this.odooLibService.search(properties, '/account.tax/read'),
+    )) as unknown as BaseSearch[];
+  }
 
   async stateSearch(jobId: string, properties: SearchReadParams, property: string): Promise<BaseSearch[]> {
     return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/res.country.state/search_read', 'POST', properties, () =>

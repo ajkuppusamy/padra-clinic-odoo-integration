@@ -24,6 +24,8 @@ export enum RequestType {
   FETCH_QUOTE_TEMPLATE = 'fetch_quote_template',
   UPDATE_INVOICE = 'update_invoice',
   CREATE_DISCOUNT = 'create_discount',
+  CREATE_LINEITEMS = 'create_lineItems',
+  TAX_READ = 'tax_read',
 }
 
 export enum RequestStatus {
