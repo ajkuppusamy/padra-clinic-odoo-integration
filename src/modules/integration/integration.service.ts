@@ -1,4 +1,5 @@
 import { QueueStatus } from '@common/entities';
+import { HubspotObjects } from '@common/enums';
 import { QueueRepository } from '@common/repositories';
 import { toHubspotDateValue } from '@common/utils';
 import {
@@ -1027,7 +1028,7 @@ export class IntegrationService {
     return quoteId;
   }
 
-  private async handlingServiceClose(jobId: string, deal: SimplePublicObjectWithAssociations) {
+  private async handlingServiceClose(jobId: string, deal: SimplePublicObjectWithAssociations, quoteId: string) {
     this.logger.debug(`${this.handlingServiceClose.name} for deal : ${deal.id}`);
     const dealId = deal.id;
 
@@ -1040,6 +1041,20 @@ export class IntegrationService {
     if (!closedStageId) return await this.handleSkip(jobId, this.handlingServiceClose.name, 'service complete stage id not found for deal pipeline');
 
     await this.updateDeal(jobId, dealId, { dealstage: closedStageId });
+
+    const { invoices } = await this.hubspotService.getDealDetails(dealId, jobId, [HubspotObjects.INVOICES]);
+
+    const invoice = invoices?.[0]?.id
+      ? await this.hubspotService.updateInvoiceById(jobId, invoices?.[0].id, {
+          hs_invoice_status: 'paid',
+        })
+      : null;
+
+    this.logger.verbose(
+      invoice
+        ? `[Invoice Sync] Successfully updated invoice status to PAID. JobId: ${jobId}, InvoiceId: ${invoices[0].id}`
+        : `[Invoice Sync] Invoice update skipped. No associated invoice found. JobId: ${jobId}`,
+    );
 
     return await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
   }
@@ -1090,7 +1105,7 @@ export class IntegrationService {
 
     if (!deal) return await this.handleSkip(jobId, context, `Sales order id : ${salesOrderId} Deal Not Found`);
 
-    if (event.is_closed) return await this.handlingServiceClose(jobId, deal);
+    if (event.is_closed) return await this.handlingServiceClose(jobId, deal, quoteId);
 
     await this.handlingServiceCloseSessions(jobId, event, deal);
 

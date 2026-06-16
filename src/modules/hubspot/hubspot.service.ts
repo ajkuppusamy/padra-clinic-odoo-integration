@@ -78,14 +78,14 @@ export class HubspotService {
     }
   }
 
-  async getDealDetails(dealId: string, jobId: string) {
+  async getDealDetails(dealId: string, jobId: string, objectType?: string[]) {
     const method = this.getDealDetails.name;
 
     this.logger.log(`[${method}] Fetching`, { jobId, dealId });
 
     try {
       const deal = await this.fetchDeal(dealId, jobId);
-      const associations = await this.fetchDealsAssociations(dealId, jobId);
+      const associations = await this.fetchDealsAssociations(dealId, jobId, objectType);
 
       const objects = await this.fetchdDealAssociatedObjects(associations.lineItemIds, associations.contactIds, associations.quoteIds, dealId, jobId);
 
@@ -147,6 +147,8 @@ export class HubspotService {
           return RequestType.FETCH_CONTACT;
         case HubspotObjects.QUOTES:
           return RequestType.FETCH_QUOTE;
+        case HubspotObjects.INVOICES:
+          return RequestType.FETCH_INVOICE;
         default:
           return RequestType.SEARCH; // or some default
       }
@@ -204,18 +206,21 @@ export class HubspotService {
     quoteIds: SimplePublicObjectId[] = [],
     dealId: string,
     jobId: string,
+    invoiceIds?: SimplePublicObjectId[],
   ): Promise<{
     lineItems: SimplePublicObject[];
     contacts: SimplePublicObject[];
     quotes: SimplePublicObject[];
+    invoices: SimplePublicObject[];
   }> {
-    const [lineItems, contacts, quotes] = await Promise.all([
+    const [lineItems, contacts, quotes, invoices] = await Promise.all([
       lineItemIds.length ? this.fetchBatch(HubspotObjects.LINE_ITEMS, lineItemIds, RequestType.FETCH_LINEITEM, dealId, jobId) : Promise.resolve([]),
       contactIds.length ? this.fetchBatch(HubspotObjects.CONTACTS, contactIds, RequestType.FETCH_CONTACT, dealId, jobId) : Promise.resolve([]),
       quoteIds.length ? this.fetchBatch(HubspotObjects.QUOTES, quoteIds, RequestType.FETCH_QUOTE, dealId, jobId) : Promise.resolve([]),
+      invoiceIds?.length ? this.fetchBatch(HubspotObjects.INVOICES, invoiceIds, RequestType.FETCH_INVOICE, dealId, jobId) : Promise.resolve([]),
     ]);
 
-    return { lineItems, contacts, quotes };
+    return { lineItems, contacts, quotes, invoices };
   }
 
   private async fetchBatch(objectType: HubspotObjects, ids: SimplePublicObjectId[], requestType: RequestType, externalId: string, jobId: string): Promise<SimplePublicObject[]> {
@@ -277,21 +282,21 @@ export class HubspotService {
   private buildCreateInvoicePayload(
     quotationId: string,
     invoiceId: string,
-    dealId: string,
+    deal: SimplePublicObjectWithAssociations | SimplePublicObject,
     lineItems: SimplePublicObject[],
     contacts: SimplePublicObject[],
   ): SimplePublicObjectInputForCreate {
     return {
       properties: {
         hs_title: `Invoice from Odoo - ${quotationId}`,
-        hs_currency: 'AED', // USD OR AED
+        hs_currency: deal?.properties?.deal_currency_code ?? 'AED', // USD OR AED
         hs_invoice_status: 'draft',
         hs_invoice_date: new Date().toISOString(),
         odoo_quotation_id: quotationId ?? '',
         odoo_invoice_id: invoiceId ?? '',
       },
       associations: [
-        ...(dealId ? [{ to: { id: dealId }, types: [{ associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined, associationTypeId: 175 }] }] : []),
+        ...(deal?.id ? [{ to: { id: deal?.id }, types: [{ associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined, associationTypeId: 175 }] }] : []),
         ...(contacts
           ?.filter((c) => c?.id)
           .map((c) => ({ to: { id: c.id }, types: [{ associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined, associationTypeId: 177 }] })) ?? []),
@@ -310,7 +315,7 @@ export class HubspotService {
     contact: SimplePublicObject[],
     status?: 'paid' | 'open' | 'draft',
   ) {
-    const payload = this.buildCreateInvoicePayload(quotation.quotation_id as string, quotation.invoice_id as string, deal.id, lineItems, contact);
+    const payload = this.buildCreateInvoicePayload(quotation.quotation_id as string, quotation.invoice_id as string, deal, lineItems, contact);
 
     this.logger.debug(`${this.processInvoice.name} payload=${JSON.stringify(payload)}`);
 
