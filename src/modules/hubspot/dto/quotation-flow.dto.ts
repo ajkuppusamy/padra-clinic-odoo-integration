@@ -14,9 +14,9 @@ export enum PaymentMethod {
   IFINANCE = 'iFinance',
   BEAUTIFI = 'Beautifi',
 
-  TABI = 'Tabi',
+  TABBY = 'Tabby',
   TAMARA = 'Tamara',
-  MYFATHOR = 'Myfathor',
+  MY_FATOORA = 'My Fatoora',
 }
 
 export class Quotation {
