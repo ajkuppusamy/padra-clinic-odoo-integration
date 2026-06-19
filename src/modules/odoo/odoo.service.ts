@@ -259,7 +259,7 @@ export class OdooService {
       domain: [['company_id', '=', companyId]] as any,
       fields: ['id', 'name', 'display_name', 'list_price', 'company_id', 'base_unit_price', 'taxes_id'],
     };
-    delete productPayload.fields;
+    // delete productPayload.fields;
 
     await this.searchProductByCompanyId(jobId, productPayload, 'company_id');
 
@@ -290,7 +290,7 @@ export class OdooService {
 
     const taxResponse = await this.taxRead(jobId, {
       ids: allTaxIds,
-      fields: ['display_name', 'name', 'create_date', 'company_id'],
+      fields: ['display_name', 'name', 'create_date', 'company_id', 'amount'],
     });
 
     return taxResponse?.['result'] || taxResponse?.['data'] || (Array.isArray(taxResponse) ? taxResponse : []);
@@ -300,7 +300,12 @@ export class OdooService {
     return products.map((product) => {
       const productCompanyId = product.company_id?.[0];
       const companyTaxes = taxes.filter((tax) => product.taxes_id?.includes(tax.id) && tax.company_id?.[0] === productCompanyId);
-      return { ...product, companyTaxes };
+      const totalTax = companyTaxes.reduce((sum, tax) => sum + (tax.amount || 0), 0);
+
+      return {
+        ...product,
+        totalTax,
+      };
     });
   }
 
