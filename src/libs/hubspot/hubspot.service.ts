@@ -2,11 +2,14 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Client as HubspotClient } from '@hubspot/api-client';
 import {
+  AssociationSpec,
   BatchInputSimplePublicObjectBatchInputForCreate,
   BatchReadInputSimplePublicObjectId,
   BatchResponseSimplePublicObject,
   CollectionResponseSimplePublicObjectWithAssociationsForwardPaging,
   CollectionResponseWithTotalSimplePublicObjectForwardPaging,
+  HttpFile,
+  PromiseConfigurationOptions,
   PublicObjectSearchRequest,
   SimplePublicObject,
   SimplePublicObjectInput,
@@ -241,6 +244,39 @@ export class HubspotService {
   }
 
   /**
+   * Creates an association between two HubSpot objects
+   *
+   * @param fromObjectType - Source object type
+   * @param fromObjectId - Source object ID
+   * @param toObjectType - Target object type
+   * @param toObjectId - Target object ID
+   * @param associationSpec - Association definition
+   */
+  async createHubspotAssociation(
+    fromObjectType: HubspotObjects,
+    fromObjectId: string,
+    toObjectType: HubspotObjects,
+    toObjectId: string,
+    associationSpec: AssociationSpec[],
+  ): Promise<boolean> {
+    return await this.queue.add(async () => {
+      try {
+        this.logger.debug(`Creating association from ${fromObjectType} (${fromObjectId}) to ${toObjectType} (${toObjectId})`);
+
+        await this.hubspotClient.crm.associations.v4.basicApi.create(fromObjectType, fromObjectId, toObjectType, toObjectId, associationSpec);
+
+        this.logger.log(`Successfully created association from ${fromObjectType} (${fromObjectId}) to ${toObjectType} (${toObjectId})`);
+
+        return true;
+      } catch (error: any) {
+        this.logger.error(`Failed to create association from ${fromObjectType} (${fromObjectId}) to ${toObjectType} (${toObjectId}): ${error?.message}`, error?.stack);
+
+        return false;
+      }
+    });
+  }
+
+  /**
    * Searches HubSpot CRM objects using the provided search request with optional pagination support.
    *
    * This method executes the search operation through an internal queue to control concurrency
@@ -346,6 +382,26 @@ export class HubspotService {
         return result as BatchResponseSimplePublicObject;
       } catch (error) {
         this.logger.error(`Failed to batch create ${objectType}: ${error?.['message']}`, error?.['stack']);
+        throw error;
+      }
+    });
+  }
+
+  async fileUpload(
+    file?: HttpFile | undefined,
+    folderId?: string,
+    folderPath?: string,
+    fileName?: string,
+    charsetHunch?: string,
+    options?: string,
+    _options?: PromiseConfigurationOptions,
+  ): Promise<any> {
+    return this.queue.add(async () => {
+      try {
+        const result = await this.hubspotClient.files.filesApi.upload(file, folderId, folderPath, fileName, charsetHunch, options);
+
+        return result;
+      } catch (error) {
         throw error;
       }
     });

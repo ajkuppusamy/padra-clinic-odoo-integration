@@ -61,6 +61,8 @@ export class AwsSqsConsumerService {
           break;
         case 'contact_update':
           await this.integrationService.handlingContactProcess(jobId, data);
+        case 'file_upload':
+          await this.integrationService.fileUploadProcess(jobId, data);
         default:
           this.logger.warn(`Unhandled eventName: ${eventName}`);
           await this.integrationService.handleSkip(jobId, this.sqsMessageHandler.name, `Unhandled eventName: ${eventName}`);

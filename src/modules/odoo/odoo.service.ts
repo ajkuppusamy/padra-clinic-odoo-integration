@@ -211,10 +211,8 @@ export class OdooService {
     };
   }
 
-  public async listProductbyPipelineId(dealId: number, pipelineId: number | string, page = 1, limit = 100) {
-    const pipelineCompanyMap: Record<string, number> = JSON.parse(this.configService.get<string>('HUBSPOT_PIPELINE_ODOO_COMPANY_MAP') || '{}');
-    let companyId = pipelineCompanyMap[pipelineId];
-    const emptyResponse = (message: string, branch?: string | null) => ({
+  private buildEmptyResponse(message: string, page: number, limit: number, branch?: string | null) {
+    return {
       success: false,
       message,
       branch: branch || null,
@@ -228,90 +226,93 @@ export class OdooService {
         nextPage: null,
         prevPage: null,
       },
-    });
+    };
+  }
 
-    if (!companyId) return emptyResponse('Company mapping not found');
+  private getCompanyIdForPipeline(pipelineId: number | string): number | undefined {
+    const pipelineCompanyMap: Record<string, number> = JSON.parse(this.configService.get<string>('HUBSPOT_PIPELINE_ODOO_COMPANY_MAP') || '{}');
+    return pipelineCompanyMap[pipelineId];
+  }
 
-    const queue = await this.queueRepository
+  private async createListQueue(companyId: number) {
+    return this.queueRepository
       .create({
         sourceType: SourceType.HUBSPOT,
         queueType: QueueType.LIST,
-        payload: {
-          companyId,
-        },
+        payload: { companyId },
         status: QueueStatus.QUEUED,
         event: 'UI_EXTENSION',
       })
       .save();
+  }
 
-    const jobId = queue.jobId;
+  private normalizeResponseData(data: any): any[] {
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data.result)) return data.result;
+    if (Array.isArray(data.data)) return data.data;
+    return [];
+  }
 
-    const deal = await this.hubService.fetchDeal(dealId.toString(), jobId);
-
-    if (!deal) return emptyResponse('Deal not found');
-
-    const branch = deal?.properties?.branch as string;
-
-    // const mappedCompanyId = getMappedCompanyId(companyId, branch);
-
-    // if (!mappedCompanyId) return emptyResponse(`Company mapping not found for branch: ${branch}`, branch);
-
-    // this.logger.verbose(`Deal ${dealId} is associated with branch: ${branch} and companyId ${companyId} is mapped to ${mappedCompanyId}`);
-
-    // companyId = mappedCompanyId;
-
+  private async fetchProductsForCompany(jobId: string, companyId: number) {
     const productPayload: SearchReadParams = {
       domain: [['company_id', '=', companyId]] as any,
-      fields: ['id', 'name', 'display_name', 'list_price', 'company_id', 'base_unit_price'],
+      fields: ['id', 'name', 'display_name', 'list_price', 'company_id', 'base_unit_price', 'taxes_id'],
     };
     delete productPayload.fields;
 
     await this.searchProductByCompanyId(jobId, productPayload, 'company_id');
 
     const requests = await this.waitForResponses(jobId);
-
-    if (!requests?.length) return emptyResponse(`No requests found for branch: ${branch}`, branch);
+    if (!requests?.length) {
+      return null;
+    }
 
     const requestIds = requests.map((r) => r.id);
-
     const responses = requestIds.length > 0 ? await this.responseRespository.findByRequestIds(requestIds) : [];
 
-    if (!responses?.length) return emptyResponse(`No responses found for branch: ${branch}`, branch);
+    if (!responses?.length) {
+      return null;
+    }
 
-    const normalize = (data: any): any[] => {
-      if (!data) return [];
-      if (Array.isArray(data)) return data;
-      if (Array.isArray(data.result)) return data.result;
-      if (Array.isArray(data.data)) return data.data;
-
-      return [];
-    };
-
-    const products = responses
+    return responses
       .filter((r) => r.status === ResponseStatus.SUCCESS && r.data)
-      .flatMap((r) => normalize(r.data))
-      .filter((item) => {
-        return item && typeof item === 'object' && (item.list_price !== undefined || item.company_id !== undefined);
-      });
+      .flatMap((r) => this.normalizeResponseData(r.data))
+      .filter((item) => item && typeof item === 'object' && (item.list_price !== undefined || item.company_id !== undefined));
+  }
 
-    if (!products.length) return emptyResponse(`Products not found for branch: ${branch}`, branch);
+  private async fetchTaxesForProducts(jobId: string, products: any[]) {
+    const allTaxIds = [...new Set(products.flatMap((product) => product.taxes_id || []))];
+
+    if (!allTaxIds.length) {
+      return [];
+    }
+
+    const taxResponse = await this.taxRead(jobId, {
+      ids: allTaxIds,
+      fields: ['display_name', 'name', 'create_date', 'company_id'],
+    });
+
+    return taxResponse?.['result'] || taxResponse?.['data'] || (Array.isArray(taxResponse) ? taxResponse : []);
+  }
+
+  private attachTaxesToProducts(products: any[], taxes: any[]) {
+    return products.map((product) => {
+      const productCompanyId = product.company_id?.[0];
+      const companyTaxes = taxes.filter((tax) => product.taxes_id?.includes(tax.id) && tax.company_id?.[0] === productCompanyId);
+      return { ...product, companyTaxes };
+    });
+  }
+
+  private paginateProducts(products: any[], page: number, limit: number) {
     const offset = (page - 1) * limit;
-
     const paginated = products.slice(offset, offset + limit);
-
     const total = products.length;
-
     const hasNext = offset + limit < total;
-
     const hasPrev = page > 1;
 
-    await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED, undefined, 'Product search success');
-
     return {
-      success: true,
-      message: `Products fetched successfully for branch: ${branch}`,
-      branch,
-      products: paginated,
+      paginated,
       pagination: {
         page,
         limit,
@@ -321,6 +322,46 @@ export class OdooService {
         nextPage: hasNext ? page + 1 : null,
         prevPage: hasPrev ? page - 1 : null,
       },
+    };
+  }
+
+  public async listProductbyPipelineId(dealId: number, pipelineId: number | string, page = 1, limit = 100) {
+    const companyId = this.getCompanyIdForPipeline(pipelineId);
+    if (!companyId) {
+      return this.buildEmptyResponse('Company mapping not found', page, limit);
+    }
+
+    const queue = await this.createListQueue(companyId);
+    const jobId = queue.jobId;
+
+    const deal = await this.hubService.fetchDeal(dealId.toString(), jobId);
+    if (!deal) {
+      return this.buildEmptyResponse('Deal not found', page, limit);
+    }
+
+    const branch = deal?.properties?.branch as string;
+
+    const products = await this.fetchProductsForCompany(jobId, companyId);
+    if (!products) {
+      return this.buildEmptyResponse(`No requests/responses found for branch: ${branch}`, page, limit, branch);
+    }
+    if (!products.length) {
+      return this.buildEmptyResponse(`Products not found for branch: ${branch}`, page, limit, branch);
+    }
+
+    const taxes = await this.fetchTaxesForProducts(jobId, products);
+    const productsWithTaxes = this.attachTaxesToProducts(products, taxes);
+
+    const { paginated, pagination } = this.paginateProducts(productsWithTaxes, page, limit);
+
+    await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED, undefined, 'Product search success');
+
+    return {
+      success: true,
+      message: `Products fetched successfully for branch: ${branch}`,
+      branch,
+      products: paginated,
+      pagination,
     };
   }
 
@@ -773,6 +814,12 @@ export class OdooService {
     return this.executeTrackedRequest(jobId, RequestType.CREATE_INVOICE, property, '/sale.advance.payment.inv/create', 'POST', properties, () =>
       this.odooLibService.search(properties, '/sale.advance.payment.inv/create'),
     ) as unknown as number[];
+  }
+
+  async getFileBySalesOrderId(jobId: string, salesOrderId: string, property: string): Promise<any> {
+    return this.executeTrackedRequest(jobId, RequestType.FILE_READ, property, `/report/pdf/sale.report_saleorder_pro_forma/${salesOrderId}`, 'GET', undefined, () =>
+      this.odooLibService.salesOrderBufferget(`/report/pdf/sale.report_saleorder_pro_forma/${salesOrderId}`),
+    ) as unknown as any;
   }
 
   async paymentInvoiceValidate(jobId: string, properties: ValsList | {}, property: string): Promise<number[]> {

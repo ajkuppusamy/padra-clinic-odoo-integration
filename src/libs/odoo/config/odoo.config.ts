@@ -29,6 +29,7 @@ export class OdooConfigService {
     const retryDelay = this.configService.get<number>('ODOO_RETRY_DELAY', 1000);
     const searchApiKey = this.configService.get<string>('ODOO_SEARCH_API_KEY') as string;
     const searchAPIURL = this.configService.get<string>('ODOO_SEARCH_API') as string;
+    const fileUploadUrl = this.configService.get<string>('ODOO_FILE_UPLOAD_URL') as string;
 
     if (!baseURL) {
       throw new Error('ODOO_BASE_URL configuration is missing');
@@ -49,6 +50,7 @@ export class OdooConfigService {
       retryDelay,
       searchApiKey,
       searchAPIURL,
+      fileUploadUrl,
     };
   }
 

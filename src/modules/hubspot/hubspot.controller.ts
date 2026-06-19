@@ -63,7 +63,7 @@ export class HubspotController {
   })
   @Post('webhook')
   async sendQuotationFlow(@Body() body: HubspotWebhookDto | HubspotWebhookDto[]) {
-    return this.hubspotService.sendSQS(body);
+    return await this.hubspotService.sendSQS(body);
   }
 
   @ApiOperation({ summary: 'Create line items for a deal from Odoo product' })
@@ -83,5 +83,50 @@ export class HubspotController {
   @Post('deals/:dealId/line-items')
   async createLineItems(@Param('dealId') dealId: string, @Body() body: HubspotProductDto) {
     return this.hubspotService.syncOdooProductsToHubSpotLineItems(body, dealId);
+  }
+
+  @ApiOperation({
+    summary: 'Upload Odoo sales order documents to HubSpot and associate them with a deal',
+  })
+  @ApiParam({
+    name: 'dealId',
+    required: true,
+    description: 'HubSpot Deal ID',
+  })
+  @ApiParam({
+    name: 'salesOrderId',
+    required: true,
+    description: 'Odoo Sales Order ID',
+  })
+  @ApiHeaders([
+    {
+      name: 'api-key',
+      required: true,
+      description: 'API key for authentication',
+    },
+  ])
+  @ApiResponse({
+    status: 200,
+    description: 'Documents uploaded and associated successfully',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden',
+  })
+  @HttpCode(HttpStatus.OK)
+  @Post('deals/:dealId/sales-orders/:salesOrderId/documents')
+  async uploadSalesOrderDocuments(@Param('dealId') dealId: string, @Param('salesOrderId') salesOrderId: string) {
+    return await this.hubspotService.sendSQS(
+      {
+        objectId: Number(dealId),
+        propertyName: `salesOrderId_${Date.now()}`,
+        propertyValue: salesOrderId,
+      },
+      'file_upload',
+    );
   }
 }

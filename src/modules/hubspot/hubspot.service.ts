@@ -6,10 +6,13 @@ import { QueueRepository, RequestRepository, ResponseRepository } from '@common/
 import { QueueStatus, QueueType, SourceType, RequestType, RequestStatus, ResponseStatus } from '@common/entities';
 import { HubspotObjects } from '@common/enums';
 import {
+  AssociationSpec,
   AssociationSpecAssociationCategoryEnum,
   BatchInputSimplePublicObjectBatchInputForCreate,
   FilterGroup,
   FilterOperatorEnum,
+  HttpFile,
+  PromiseConfigurationOptions,
   PublicObjectSearchRequest,
   SimplePublicObject,
   SimplePublicObjectId,
@@ -37,14 +40,14 @@ export class HubspotService {
     private readonly responseRepository: ResponseRepository,
     private readonly hubspotLibService: HubspotLibService,
   ) {}
-  async sendSQS(data: HubspotWebhookDto | HubspotWebhookDto[]) {
+  async sendSQS(data: HubspotWebhookDto | HubspotWebhookDto[], eventName?: string) {
     this.logger.log('Received webhook payload', {
       isArray: Array.isArray(data),
       count: Array.isArray(data) ? data.length : 1,
     });
 
     const webhookEvents = Array.isArray(data) ? data : [data];
-    return Promise.all(webhookEvents.map((item) => this.queueWebhook(item)));
+    return Promise.all(webhookEvents.map((item) => this.queueWebhook(item, eventName)));
   }
 
   private async queueWebhook(data: HubspotWebhookDto, event?: string) {
@@ -62,7 +65,7 @@ export class HubspotService {
         }),
       );
 
-      const eventName = data.objectTypeId === '0-3' ? 'deal_update' : 'contact_update';
+      const eventName = event ?? (data.objectTypeId === '0-3' ? 'deal_update' : 'contact_update');
       const deduplicationId = `${data.objectId}-${data.propertyName}-${data.appId}`;
       await this.sqsProducerService.sendMessage(sqsUrl, queueRec.jobId, data, eventName, deduplicationId);
 
@@ -252,6 +255,12 @@ export class HubspotService {
   public async createQuote(jobId: string, properties: SimplePublicObjectInputForCreate) {
     return this.executeTrackedRequest(jobId, RequestType.CREATE_QUOTE, null, `/quotes`, 'POST', properties, () =>
       this.hubspotLibService.createHubspotObject(HubspotObjects.QUOTES, properties),
+    );
+  }
+
+  public async createNote(jobId: string, properties: SimplePublicObjectInputForCreate) {
+    return this.executeTrackedRequest(jobId, RequestType.CREATE_NOTE, null, `/quotes`, 'POST', properties, () =>
+      this.hubspotLibService.createHubspotObject(HubspotObjects.NOTES, properties),
     );
   }
 
@@ -537,6 +546,25 @@ export class HubspotService {
     return deals[0]?.toObjectId;
   }
 
+  public async createAssociation(
+    fromObjectType: HubspotObjects,
+    fromObjectId: string,
+    toObjectType: HubspotObjects,
+    toObjectId: string,
+    associationSpec: AssociationSpec[],
+    jobId: string,
+  ): Promise<boolean> {
+    return await this.executeTrackedRequest(
+      jobId,
+      RequestType.UPDATE_DEAL,
+      fromObjectId,
+      `/${fromObjectType}/${fromObjectId}/associations/${toObjectType}/${toObjectId}`,
+      'PUT',
+      {},
+      () => this.hubspotLibService.createHubspotAssociation(fromObjectType, fromObjectId, toObjectType, toObjectId, associationSpec),
+    );
+  }
+
   public async fetchAssociatedQuoteByDealId(dealId: string, jobId: string): Promise<string | null> {
     const quotes = await this.executeTrackedRequest(jobId, RequestType.FETCH_QUOTE, dealId, `/deals/${dealId}/associations/quotes`, 'GET', {}, () =>
       this.hubspotLibService.getHubspotAssociations(HubspotObjects.DEALS, dealId, HubspotObjects.QUOTES),
@@ -709,6 +737,21 @@ export class HubspotService {
         },
       ],
     };
+  }
+
+  public async fileUpload(
+    jobId: string,
+    file?: HttpFile | undefined,
+    folderId?: string,
+    folderPath?: string,
+    fileName?: string,
+    charsetHunch?: string,
+    options?: string,
+    _options?: PromiseConfigurationOptions,
+  ) {
+    return this.executeTrackedRequest(jobId, RequestType.FIE_UPLOAD, null, `/files/2026-03/files`, 'POST', {}, () =>
+      this.hubspotLibService.fileUpload(file, folderId, folderPath, fileName, charsetHunch, options),
+    );
   }
 
   private buildQuotePayloadObject(

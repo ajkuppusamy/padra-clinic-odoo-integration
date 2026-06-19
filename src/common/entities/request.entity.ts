@@ -26,6 +26,9 @@ export enum RequestType {
   CREATE_DISCOUNT = 'create_discount',
   CREATE_LINEITEMS = 'create_lineItems',
   TAX_READ = 'tax_read',
+  FILE_READ = 'file_read',
+  FIE_UPLOAD = 'file_upload',
+  CREATE_NOTE = 'create_note',
 }
 
 export enum RequestStatus {

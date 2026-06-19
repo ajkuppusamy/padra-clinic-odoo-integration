@@ -27,6 +27,7 @@ export enum HubspotObjects {
   TASKS = 'tasks',
   NOTES = 'notes',
   EMAIL_EVENTS = 'email_events',
+  FILES = 'files',
 
   CUSTOM_OBJECTS = 'custom_objects',
 }

@@ -5,7 +5,9 @@ import { toHubspotDateValue } from '@common/utils';
 import {
   AssociationSpecAssociationCategoryEnum,
   BatchInputSimplePublicObjectBatchInputForCreate,
+  HttpFile,
   SimplePublicObject,
+  SimplePublicObjectInputForCreate,
   SimplePublicObjectWithAssociations,
 } from '@hubspot/api-client/lib/codegen/crm/companies';
 import { PublicOwner } from '@hubspot/api-client/lib/codegen/crm/owners/models/all';
@@ -725,7 +727,11 @@ export class IntegrationService {
     try {
       const { deal, contacts, lineItems } = await this.hubspotService.getDealDetails(dealId, jobId);
 
-      const isDiscounted = await this.isSalesOrderIsDiscounted(deal);
+      const { sales_order_id } = deal.properties;
+
+      if (sales_order_id) return await this.handleSkip(jobId, context, 'Already Quotation Exist');
+
+      const isDiscounted = this.isSalesOrderIsDiscounted(deal);
 
       if (isDiscounted) {
         await this.handlingDiscountProcess(jobId, deal);
@@ -802,6 +808,8 @@ export class IntegrationService {
       } else {
         await this.handleOdooInvoiceUpsertProcess(jobId, deal, lineItems, quotation?.[0], primaryContact);
       }
+
+      await this.hubspotService.updateDealById(jobId, deal.id, { sales_order_id: quotation?.[0] });
       await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
 
       this.logger.log(`[${context}] Completed successfully`, { jobId });
@@ -1118,5 +1126,65 @@ export class IntegrationService {
     const contact = await this.hubspotService.fetchContact(recordId, jobId);
     await this.odooUpsertContactProcess(jobId, contact);
     return await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
+  }
+  public async fileUploadProcess(jobId: string, event: HubspotWebhookDto) {
+    this.logger.debug(`${this.fileUploadProcess.name}`);
+
+    // Path for folder structure (without .pdf)
+    const folderPath = `sales_orders/${event.objectId}/${event.propertyValue}`;
+
+    // Get file from Odoo
+    const buffer = await this.odooService.getFileBySalesOrderId(jobId, event.propertyValue as string, 'id');
+
+    // Get deal details
+    const { deal } = await this.hubspotService.getDealDetails(String(event.objectId), jobId);
+
+    const { dealname } = deal.properties;
+
+    const payload: HttpFile = {
+      data: buffer.toString('base64'),
+      name: `${dealname}.pdf`,
+    };
+
+    // Upload file using the fixed method
+    const uploadedFile = await this.hubspotService.fileUpload(
+      jobId,
+      payload,
+      undefined, // folderId
+      folderPath, // folderPath (without .pdf)
+      `${dealname}.pdf`, // fileName
+      undefined, // charsetHunch
+      JSON.stringify({
+        access: 'PRIVATE',
+        // Optional: add other options like duplicateValidation
+        duplicateValidation: 'REPLACE', // or 'SKIP', 'ERROR'
+      }),
+    );
+
+    // Create note with attachment
+    const note: SimplePublicObjectInputForCreate = {
+      properties: {
+        hs_note_body: `Sales Order document uploaded: ${dealname}.pdf`,
+        hs_timestamp: String(toHubspotDateValue(new Date())),
+        hs_attachment_ids: uploadedFile?.id,
+      },
+      associations: [
+        {
+          to: {
+            id: deal.id,
+          },
+          types: [
+            {
+              associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined,
+              associationTypeId: 214,
+            },
+          ],
+        },
+      ],
+    };
+
+    await this.hubspotService.createNote(jobId, note);
+    await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
+    return;
   }
 }

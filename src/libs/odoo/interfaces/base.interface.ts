@@ -44,4 +44,5 @@ export interface OdooConfig {
   retryDelay: number;
   searchApiKey: string;
   searchAPIURL: string;
+  fileUploadUrl: string;
 }

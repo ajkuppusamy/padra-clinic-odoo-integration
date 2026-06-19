@@ -74,6 +74,7 @@ export class OdooService {
   private readonly retryDelay: number;
   private readonly searchApiKey: string;
   private readonly searchUrl?: string;
+  private readonly fileUploadBaseUrl?: string;
 
   /**
    * Creates an instance of OdooService
@@ -97,6 +98,7 @@ export class OdooService {
     this.retryDelay = config.retryDelay;
     this.searchApiKey = config.searchApiKey;
     this.searchUrl = config.searchAPIURL;
+    this.fileUploadBaseUrl = config.fileUploadUrl;
 
     this.requestQueue = new PQueue({
       concurrency: config.maxConcurrent,
@@ -142,9 +144,8 @@ export class OdooService {
    * @returns {Promise<T>} Promise resolving to the response data
    * @throws {HttpException} When request fails after all retry attempts
    */
-  private async request<T>(method: string, path: string, data?: any, searchAPIHeaders?: Record<string, string>): Promise<T> {
-    const url = searchAPIHeaders ? this.searchUrl : `${this.baseURL}${path}`;
-
+  private async request<T>(method: string, path: string, data?: any, searchAPIHeaders?: Record<string, string>, isFileUpload?: boolean): Promise<T> {
+    const url = isFileUpload ? `${this.fileUploadBaseUrl}${path}` : searchAPIHeaders ? `${this.searchUrl}${path}` : `${this.baseURL}${path}`;
     this.logger.debug('HTTP Request', {
       method,
       path,
@@ -160,7 +161,7 @@ export class OdooService {
           this.httpService
             .request({
               method,
-              url: searchAPIHeaders ? `${this.searchUrl}${path}` : `${this.baseURL}${path}`,
+              url,
               headers: searchAPIHeaders ?? this.getHeaders(),
               data,
               timeout: this.timeout,
@@ -497,5 +498,15 @@ export class OdooService {
     path: string,
   ): Promise<ContactSearchResponse[] | Product[] | number[] | CompanySearchResponse[] | boolean | BaseSearch[]> {
     return await this.request<ContactSearchResponse[] | Product[] | number[] | CompanySearchResponse[] | boolean | BaseSearch[]>('POST', path, search, this.getSearchHeaders());
+  }
+
+  /**
+   * Search Objects
+   *
+   * @param {FileUpload} Buffer - Search parameters
+   * @throws {HttpException} When API error occurs
+   */
+  async salesOrderBufferget(path: string): Promise<ContactSearchResponse[] | Product[] | number[] | CompanySearchResponse[] | boolean | BaseSearch[]> {
+    return await this.request('GET', path, undefined, this.getSearchHeaders(), true);
   }
 }
