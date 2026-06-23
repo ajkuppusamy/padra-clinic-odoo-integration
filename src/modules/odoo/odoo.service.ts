@@ -684,9 +684,9 @@ export class OdooService {
                       [odooServicePlanTypeId]: 100,
                     }
                   : {},
-                pricelist_id: Number(pricelistId),
               },
             ]),
+            pricelist_id: Number(pricelistId),
           },
         ],
       };
