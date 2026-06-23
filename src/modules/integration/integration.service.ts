@@ -591,7 +591,7 @@ export class IntegrationService {
 
     if (!missingProducts.length) {
       this.logger.verbose(`No missing products found for Deal Id : ${dealId}`);
-      return;
+      // return;
     }
 
     const batchCreateInput: BatchInputSimplePublicObjectBatchInputForCreate = {
