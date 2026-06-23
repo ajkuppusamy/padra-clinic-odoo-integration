@@ -642,6 +642,11 @@ export class OdooService {
       this.logger.debug(
         `serviceType: ${serviceType}, treatmentCategory: ${treatmentCategory}, sale_service_type_id: ${sale_service_type_id}, sale_treatment_category_id: ${sale_treatment_category_id}`,
       );
+      const currencyId = JSON.parse(this.configService.get<string>('ODOO_CURRENCY_CODE_TO_ID_MAP') || '{}')[properties?.properties?.deal_currency_code as string];
+      const pricelistMap = JSON.parse(this.configService.get<string>('COMPANY_CURRENCY_TO_PRICELIST_ID_MAP') || '{}');
+      const key = `${companyId}_${currencyId}`;
+      const pricelistId = pricelistMap[key];
+
       const isOdooPropertymap = (await this.configService.get<string>('IS_ODOO_PROPERTY_MAP'))?.toLowerCase() === 'true';
       const dealProperties = isOdooPropertymap
         ? {
@@ -679,6 +684,7 @@ export class OdooService {
                       [odooServicePlanTypeId]: 100,
                     }
                   : {},
+                pricelist_id: Number(pricelistId),
               },
             ]),
           },
