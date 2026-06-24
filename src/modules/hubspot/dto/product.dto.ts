@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsArray, IsEnum, IsNumber, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { IsArray, IsEnum, IsNumber, IsOptional, IsString, ValidateIf, ValidateNested } from 'class-validator';
 import { PaymentMethod } from './quotation-flow.dto';
 
 export class ProductDto {
@@ -62,4 +62,23 @@ export class HubspotProductDto {
   @ValidateNested({ each: true })
   @Type(() => ProductDto)
   products!: ProductDto[];
+
+  @ApiPropertyOptional({
+    example: 'percentage',
+    description: 'Discount type (e.g., percentage or fixed)',
+  })
+  @IsOptional()
+  @IsString()
+  discountType?: string;
+
+  @ApiPropertyOptional({
+    example: 10,
+    description: 'Discount value. Can be a number or string.',
+  })
+  @IsOptional()
+  @ValidateIf((o) => typeof o.discountValue === 'number')
+  @IsNumber()
+  @ValidateIf((o) => typeof o.discountValue === 'string')
+  @IsString()
+  discountValue?: number | string;
 }

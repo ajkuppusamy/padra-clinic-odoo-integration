@@ -711,14 +711,30 @@ export class HubspotService {
         }
       }),
     );
+    const isPercentage = products?.discountType === 'PERCENTAGE';
+    const discountValue = products?.discountValue;
 
-    // Update deal after all line items created
-    await this.hubspotLibService.updateHubspotObject(HubspotObjects.DEALS, dealId, {
+    const getDiscountValue = (value: any): string | undefined => {
+      if (value == null || value === '') return undefined;
+      return String(value);
+    };
+
+    const updateData: any = {
       line_items_created: 'true',
-      payment_method: products.paymentMethod as unknown as PaymentMethod,
-      amount: totalAmount.toString(),
-    });
+      payment_method: products?.paymentMethod as unknown as PaymentMethod,
+      amount: totalAmount?.toString() || '0',
+      discount_type: products?.discountType || undefined,
+      percentage_discount: undefined,
+      fixed_amount_discount: undefined,
+    };
 
+    if (isPercentage) {
+      updateData.percentage_discount = getDiscountValue(discountValue);
+    } else if (products?.discountType === 'FIXED_AMOUNT') {
+      updateData.fixed_amount_discount = getDiscountValue(discountValue);
+    }
+
+    await this.hubspotLibService.updateHubspotObject(HubspotObjects.DEALS, dealId, updateData);
     return {
       success: true,
       total: products.products.length,
