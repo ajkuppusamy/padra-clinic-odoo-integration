@@ -48,7 +48,7 @@ export class Request extends BaseModel {
   @Column({ name: 'job_id' })
   jobId!: string;
 
-  @Column({ name: 'request_type', type: 'varchar', length: 100 })
+  @Column({ name: 'request_type', type: 'enum', enum: RequestType })
   requestType!: RequestType;
 
   @Column({ name: 'external_id', type: 'varchar', length: 255, nullable: true })
