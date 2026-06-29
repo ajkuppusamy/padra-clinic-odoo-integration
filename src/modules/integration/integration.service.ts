@@ -412,6 +412,14 @@ export class IntegrationService {
     return;
   }
 
+  public async handlingRefund(jobId: string, event: PaymentCreatedEvent, dealId: string) {
+    this.logger.debug(`${this.handlingRefund.name}`);
+    const properties = { sales_order_refund_amount: event?.amount ?? '', sales_order_refund_reason: event?.memo ?? '' };
+    await this.updateDeal(jobId, dealId, properties);
+    await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
+    return;
+  }
+
   /**
    * =========================
    * PAYMENT FLOW
@@ -442,6 +450,10 @@ export class IntegrationService {
     // if (payload?.amount !== event?.amount_paid?.toString()) {
     //   await this.handleInvoiceProcess(jobId, deal, event, invoiceId, contacts);
     // }
+
+    if (event.payment_type === 'outbound') {
+      return await this.handlingRefund(jobId, event, dealId);
+    }
 
     await this.updateDeal(jobId, dealId, payload);
 
