@@ -809,7 +809,8 @@ export class IntegrationService {
         await this.handleOdooInvoiceUpsertProcess(jobId, deal, lineItems, quotation?.[0], primaryContact);
       }
 
-      await this.hubspotService.updateDealById(jobId, deal.id, { sales_order_id: quotation?.[0] });
+      const reportLink = await this.odooService.generateSalesOrderReportLink(jobId, { ids: [quotation?.[0]] }, 'id');
+      await this.hubspotService.updateDealById(jobId, deal.id, { sales_order_id: quotation?.[0], sales_order_preview_link: reportLink ?? '' });
       await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
 
       this.logger.log(`[${context}] Completed successfully`, { jobId });

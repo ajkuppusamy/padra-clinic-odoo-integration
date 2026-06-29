@@ -863,6 +863,12 @@ export class OdooService {
     ) as unknown as BaseSearch[];
   }
 
+  async generateSalesOrderReportLink(jobId: string, properties: SearchReadParams, property: string): Promise<string> {
+    return this.executeTrackedRequest(jobId, RequestType.GENERATE_REPORT_LINK, property, '/sale.order/action_share_report_link', 'POST', properties, () =>
+      this.odooLibService.search(properties, '/sale.order/action_share_report_link'),
+    ) as unknown as string;
+  }
+
   private async executeTrackedRequest<T>(
     jobId: string,
     requestType: RequestType,

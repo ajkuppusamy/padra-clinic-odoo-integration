@@ -29,6 +29,7 @@ export enum RequestType {
   FILE_READ = 'file_read',
   FIE_UPLOAD = 'file_upload',
   CREATE_NOTE = 'create_note',
+  GENERATE_REPORT_LINK = 'generate_report_link',
 }
 
 export enum RequestStatus {
