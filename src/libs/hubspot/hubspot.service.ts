@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Client as HubspotClient } from '@hubspot/api-client';
 import {
   AssociationSpec,
+  BatchInputSimplePublicObjectBatchInput,
   BatchInputSimplePublicObjectBatchInputForCreate,
   BatchReadInputSimplePublicObjectId,
   BatchResponseSimplePublicObject,
@@ -382,6 +383,37 @@ export class HubspotService {
         return result as BatchResponseSimplePublicObject;
       } catch (error) {
         this.logger.error(`Failed to batch create ${objectType}: ${error?.['message']}`, error?.['stack']);
+        throw error;
+      }
+    });
+  }
+
+  /**
+   * Updates multiple HubSpot objects in a single batch request.
+   *
+   * This method leverages HubSpot's Batch Update API to update multiple objects
+   * in one request. It executes the request through an internal queue to
+   * control concurrency and rate limits.
+   *
+   * @param {HubspotObjects} objectType - The type of HubSpot object to update (e.g., contacts, deals, companies, line_items).
+   * @param {BatchInputSimplePublicObjectBatchInput} batchInput - Payload containing the objects to update.
+   *
+   * @returns {Promise<BatchResponseSimplePublicObject>} A promise that resolves to the batch response containing the updated objects.
+   *
+   * @throws {Error} Throws an error if the batch update operation fails.
+   */
+  async updateBatchObject(objectType: HubspotObjects, batchInput: BatchInputSimplePublicObjectBatchInput): Promise<BatchResponseSimplePublicObject> {
+    return this.queue.add(async () => {
+      try {
+        this.logger.debug(`Batch updating ${objectType} | count: ${batchInput.inputs.length}`);
+
+        const result = await this.hubspotClient.crm.objects.batchApi.update(objectType, batchInput);
+
+        this.logger.log(`Updated ${objectType} | returned: ${result?.results?.length}`);
+
+        return result as BatchResponseSimplePublicObject;
+      } catch (error) {
+        this.logger.error(`Failed to batch update ${objectType}: ${error?.['message']}`, error?.['stack']);
         throw error;
       }
     });

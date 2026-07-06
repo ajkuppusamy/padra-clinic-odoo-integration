@@ -73,7 +73,83 @@ export interface PaymentLinkTabiTamaraWebhook {
   timestamp: ISO8601DateTime;
 }
 
-export type WebhookPayload = QuotationStatusUpdateWebhook | InvoiceCreatedWebhook | PaymentCreatedWebhook | RefundCreditNoteWebhook | PaymentLinkTabiTamaraWebhook;
+export interface SaleOrderLineUpdateWebhook {
+  created_lines: CreatedLine[];
+  event_type: 'sale_order_line_update';
+  sale_order: SaleOrder;
+  timestamp: string;
+  total_lines_created: number;
+  total_lines_updated: number;
+  updated_lines: UpdatedLine[];
+}
+
+export interface SaleOrder {
+  currency: string;
+  date_order: string;
+  order_id: number;
+  order_name: string;
+  partner_id: number;
+  partner_name: string;
+  state: string;
+}
+
+export interface CreatedLine {
+  currency: string;
+  default_code: string;
+  description: string;
+  discount: number;
+  line_id: number;
+  order_id: number;
+  order_name: string;
+  price_subtotal: number;
+  price_total: number;
+  price_unit: number;
+  product_id: number;
+  product_name: string;
+  qty_delivered: number;
+  qty_invoiced: number;
+  quantity: number;
+  sequence: number;
+  state: string;
+  taxes: Tax[];
+  uom_id: number;
+  uom_name: string;
+}
+
+export interface UpdatedLine {
+  changed_fields: ChangedFields;
+  default_code: string;
+  line_id: number;
+  product_id: number;
+  product_name: string;
+}
+
+export interface ChangedFields {
+  quantity?: ChangedValue<number>;
+  price_subtotal?: ChangedValue<number>;
+  price_total?: ChangedValue<number>;
+  price_unit?: ChangedValue<number>;
+  discount?: ChangedValue<number>;
+}
+
+export interface ChangedValue<T> {
+  old: T;
+  new: T;
+}
+
+export interface Tax {
+  id?: number;
+  name?: string;
+  amount?: number;
+}
+
+export type WebhookPayload =
+  | QuotationStatusUpdateWebhook
+  | InvoiceCreatedWebhook
+  | PaymentCreatedWebhook
+  | RefundCreditNoteWebhook
+  | PaymentLinkTabiTamaraWebhook
+  | SaleOrderLineUpdateWebhook;
 
 export interface ListWebhooksResponse extends BaseResponse {
   webhooks: Array<{

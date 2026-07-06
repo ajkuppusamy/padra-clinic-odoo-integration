@@ -412,4 +412,270 @@ export class CloseServiceWebhookDto {
   timestamp?: string;
 }
 
-export class OdooWebhookHandleDto extends PartialType(IntersectionType(OdooWebhookEventDto, CloseServiceWebhookDto)) {}
+export class ChangedValueDto {
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @IsNumber()
+  old?: number;
+
+  @ApiPropertyOptional({ example: 2 })
+  @IsOptional()
+  @IsNumber()
+  new?: number;
+}
+
+export class ChangedFieldsDto {
+  @ApiPropertyOptional({ type: ChangedValueDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ChangedValueDto)
+  quantity?: ChangedValueDto;
+
+  @ApiPropertyOptional({ type: ChangedValueDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ChangedValueDto)
+  price_subtotal?: ChangedValueDto;
+
+  @ApiPropertyOptional({ type: ChangedValueDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ChangedValueDto)
+  price_total?: ChangedValueDto;
+
+  @ApiPropertyOptional({ type: ChangedValueDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ChangedValueDto)
+  price_unit?: ChangedValueDto;
+
+  @ApiPropertyOptional({ type: ChangedValueDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ChangedValueDto)
+  discount?: ChangedValueDto;
+}
+
+export class CreatedLineDto {
+  @ApiPropertyOptional({ example: 'QAR' })
+  @IsOptional()
+  @IsString()
+  currency?: string;
+
+  @ApiPropertyOptional({ example: '' })
+  @IsOptional()
+  @IsString()
+  default_code?: string;
+
+  @ApiPropertyOptional({ example: 'BED ROLL 50CM X 500GM' })
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiPropertyOptional({ example: 0 })
+  @IsOptional()
+  @IsNumber()
+  discount?: number;
+
+  @ApiPropertyOptional({ example: 986 })
+  @IsOptional()
+  @IsNumber()
+  line_id?: number;
+
+  @ApiPropertyOptional({ example: 453 })
+  @IsOptional()
+  @IsNumber()
+  order_id?: number;
+
+  @ApiPropertyOptional({ example: 'S00468' })
+  @IsOptional()
+  @IsString()
+  order_name?: string;
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @IsNumber()
+  price_subtotal?: number;
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @IsNumber()
+  price_total?: number;
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @IsNumber()
+  price_unit?: number;
+
+  @ApiPropertyOptional({ example: 387 })
+  @IsOptional()
+  @IsNumber()
+  product_id?: number;
+
+  @ApiPropertyOptional({ example: 'BED ROLL 50CM X 500GM' })
+  @IsOptional()
+  @IsString()
+  product_name?: string;
+
+  @ApiPropertyOptional({ example: 0 })
+  @IsOptional()
+  @IsNumber()
+  qty_delivered?: number;
+
+  @ApiPropertyOptional({ example: 0 })
+  @IsOptional()
+  @IsNumber()
+  qty_invoiced?: number;
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @IsNumber()
+  quantity?: number;
+
+  @ApiPropertyOptional({ example: 10 })
+  @IsOptional()
+  @IsNumber()
+  sequence?: number;
+
+  @ApiPropertyOptional({ example: 'draft' })
+  @IsOptional()
+  @IsString()
+  state?: string;
+
+  @ApiPropertyOptional({
+    example: [],
+    type: [Object],
+  })
+  @IsOptional()
+  @IsArray()
+  taxes?: any[];
+
+  @ApiPropertyOptional({ example: 31 })
+  @IsOptional()
+  @IsNumber()
+  uom_id?: number;
+
+  @ApiPropertyOptional({ example: 'PCS' })
+  @IsOptional()
+  @IsString()
+  uom_name?: string;
+}
+
+export class UpdatedLineDto {
+  @ApiPropertyOptional({ type: ChangedFieldsDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ChangedFieldsDto)
+  changed_fields?: ChangedFieldsDto;
+
+  @ApiPropertyOptional({ example: '' })
+  @IsOptional()
+  @IsString()
+  default_code?: string;
+
+  @ApiPropertyOptional({ example: 986 })
+  @IsOptional()
+  @IsNumber()
+  line_id?: number;
+
+  @ApiPropertyOptional({ example: 387 })
+  @IsOptional()
+  @IsNumber()
+  product_id?: number;
+
+  @ApiPropertyOptional({ example: 'BED ROLL 50CM X 500GM' })
+  @IsOptional()
+  @IsString()
+  product_name?: string;
+}
+
+export class SaleOrderDto {
+  @ApiPropertyOptional({ example: 'QAR' })
+  @IsOptional()
+  @IsString()
+  currency?: string;
+
+  @ApiPropertyOptional({ example: '2026-06-25T07:27:02Z' })
+  @IsOptional()
+  @IsString()
+  date_order?: string;
+
+  @ApiPropertyOptional({ example: 453 })
+  @IsOptional()
+  @IsNumber()
+  order_id?: number;
+
+  @ApiPropertyOptional({ example: 'S00468' })
+  @IsOptional()
+  @IsString()
+  order_name?: string;
+
+  @ApiPropertyOptional({ example: 66 })
+  @IsOptional()
+  @IsNumber()
+  partner_id?: number;
+
+  @ApiPropertyOptional({ example: 'Odoo Integration' })
+  @IsOptional()
+  @IsString()
+  partner_name?: string;
+
+  @ApiPropertyOptional({ example: 'draft' })
+  @IsOptional()
+  @IsString()
+  state?: string;
+}
+
+export class SaleOrderLineUpdateWebhookDto {
+  @ApiPropertyOptional({
+    type: [CreatedLineDto],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreatedLineDto)
+  created_lines?: CreatedLineDto[];
+
+  @ApiPropertyOptional({
+    example: 'sale_order_line_update',
+  })
+  @IsOptional()
+  @IsString()
+  event_type?: string;
+
+  @ApiPropertyOptional({
+    type: SaleOrderDto,
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => SaleOrderDto)
+  sale_order?: SaleOrderDto;
+
+  @ApiPropertyOptional({
+    example: '2026-07-06T10:44:50Z',
+  })
+  @IsOptional()
+  @IsString()
+  timestamp?: string;
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @IsNumber()
+  total_lines_created?: number;
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @IsNumber()
+  total_lines_updated?: number;
+
+  @ApiPropertyOptional({
+    type: [UpdatedLineDto],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => UpdatedLineDto)
+  updated_lines?: UpdatedLineDto[];
+}
+
+export class OdooWebhookHandleDto extends PartialType(IntersectionType(OdooWebhookEventDto, CloseServiceWebhookDto, SaleOrderLineUpdateWebhookDto)) {}

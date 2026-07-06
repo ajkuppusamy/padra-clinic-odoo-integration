@@ -30,6 +30,7 @@ export enum RequestType {
   FIE_UPLOAD = 'file_upload',
   CREATE_NOTE = 'create_note',
   GENERATE_REPORT_LINK = 'generate_report_link',
+  UPDATE_LINEITEMS = `update_lineItems`,
 }
 
 export enum RequestStatus {

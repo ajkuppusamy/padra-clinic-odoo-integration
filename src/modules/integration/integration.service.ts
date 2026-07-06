@@ -4,6 +4,7 @@ import { QueueRepository } from '@common/repositories';
 import { toHubspotDateValue } from '@common/utils';
 import {
   AssociationSpecAssociationCategoryEnum,
+  BatchInputSimplePublicObjectBatchInput,
   BatchInputSimplePublicObjectBatchInputForCreate,
   HttpFile,
   SimplePublicObject,
@@ -13,7 +14,7 @@ import {
 import { PublicOwner } from '@hubspot/api-client/lib/codegen/crm/owners/models/all';
 import { HubDiscountType } from '@libs/hubspot/enums/discount-type.enum';
 import { DiscountType } from '@libs/odoo/enums';
-import { ContactSearchResponse, CreateDiscount, CreateQuotationResponse, SalesOrder, SearchReadParams, ValsList } from '@libs/odoo/interfaces';
+import { ContactSearchResponse, CreateDiscount, CreateQuotationResponse, SaleOrderLineUpdateWebhook, SalesOrder, SearchReadParams, ValsList } from '@libs/odoo/interfaces';
 import { HubspotWebhookDto } from '@modules/hubspot/dto';
 import { PaymentMethod } from '@modules/hubspot/dto/quotation-flow.dto';
 import { HubspotService } from '@modules/hubspot/hubspot.service';
@@ -575,8 +576,6 @@ export class IntegrationService {
         dealstage: closedLostId,
       };
       await this.hubspotService.updateDealById(jobId, dealId, updateProperties);
-      const { lineItems } = await this.hubspotService.getDealDetails(dealId, jobId);
-      await this.createMissingLineItems(jobId, dealId, event, lineItems);
       await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
       return;
     }
@@ -587,57 +586,148 @@ export class IntegrationService {
       return;
     }
 
+    await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
+    this.logger.debug(`[${context}] Completed`, { jobId });
+  }
+
+  public async saleOrderlineUpdate(jobId: string, event: SaleOrderLineUpdateWebhook, eventName?: string) {
+    this.logger.debug(`${this.saleOrderlineUpdate.name} : ${eventName}`);
+    const context = this.saleOrderlineUpdate.name;
+
+    // Prefer order_id first, fallback to quotation_id
+    const referenceId = String(event?.sale_order.order_id);
+
+    if (!referenceId) return await this.handleSkip(jobId, context, `Order id / Quotation id not found ${referenceId}`);
+
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    const quoteId = await this.hubspotService.fetchQuoteByOdooQuoteId(jobId, referenceId);
+
+    if (!quoteId) return await this.handleSkip(jobId, context, `Reference id : ${referenceId} Quote Not Found`);
+
+    const dealId = await this.hubspotService.fetchAssociatedDealIdByQuoteId(quoteId as string, jobId);
+    if (!dealId) {
+      await this.handleSkip(jobId, context, `Reference id : ${referenceId} Deal Not Associated / Not Found`);
+      return;
+    }
+
     const { lineItems } = await this.hubspotService.getDealDetails(dealId, jobId);
-    await this.createMissingLineItems(jobId, dealId, event, lineItems);
+    await this.syncLineItems(jobId, dealId, event, lineItems);
 
     await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
     this.logger.debug(`[${context}] Completed`, { jobId });
   }
 
-  private async createMissingLineItems(jobId: string, dealId: string, event: QuotationStatusUpdateEvent, lineItems: SimplePublicObject[]): Promise<void> {
-    const existingProductIds = new Set(lineItems?.map((item) => item.properties?.odoo_product_id).filter(Boolean));
-
-    this.logger.verbose(`Existing Product Ids : ${JSON.stringify([...existingProductIds])}`);
-
-    const missingProducts = event.lines?.filter((line) => !existingProductIds.has(String(line.product_id))) || [];
-
-    if (!missingProducts.length) {
-      this.logger.verbose(`No missing products found for Deal Id : ${dealId}`);
-      // return;
-    }
+  private async syncLineItems(jobId: string, dealId: string, event: SaleOrderLineUpdateWebhook, lineItems: SimplePublicObject[]): Promise<void> {
+    this.logger.debug(`${this.syncLineItems.name} : ${jobId} : ${dealId} : ${event.sale_order.order_id}`);
+    const existingLineItems = new Map<string, SimplePublicObject>(
+      (lineItems ?? []).filter((item) => item.properties?.odoo_product_id).map((item) => [String(item.properties.odoo_product_id), item]),
+    );
 
     const batchCreateInput: BatchInputSimplePublicObjectBatchInputForCreate = {
-      inputs: missingProducts.map((line) => ({
-        properties: {
-          name: line.product_name,
-          quantity: String(line.quantity),
-          price: String(line.price_unit),
-          amount: String(line.price_subtotal),
-          odoo_product_id: String(line.product_id),
-        },
-        associations: [
-          {
-            to: {
-              id: dealId,
-            },
-            types: [
-              {
-                associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined,
-                associationTypeId: 20,
-              },
-            ],
-          },
-        ],
-      })),
+      inputs: [],
     };
 
-    const res = await this.hubspotService.createBatchLineItems(jobId, batchCreateInput);
+    const batchUpdateInput: BatchInputSimplePublicObjectBatchInput = {
+      inputs: [],
+    };
 
-    this.logger.verbose(
-      `Missing Odoo Product Line Items : ${JSON.stringify(missingProducts)}
-     => Created Line Item Ids : ${JSON.stringify(res.results.map((v) => v.id))}
-     => Associated Deal Id : ${dealId}`,
-    );
+    const association = [
+      {
+        to: { id: dealId },
+        types: [
+          {
+            associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined,
+            associationTypeId: 20,
+          },
+        ],
+      },
+    ];
+
+    /**
+     * Handle created lines (Upsert)
+     */
+    for (const line of event.created_lines ?? []) {
+      const properties = {
+        name: line.product_name,
+        quantity: String(line.quantity),
+        price: String(line.price_unit),
+        amount: String(line.price_subtotal),
+        odoo_product_id: String(line.product_id),
+      };
+
+      const existing = existingLineItems.get(String(line.product_id));
+
+      if (existing) {
+        batchUpdateInput.inputs.push({
+          id: existing.id,
+          properties,
+        });
+      } else {
+        batchCreateInput.inputs.push({
+          properties,
+          associations: association,
+        });
+      }
+    }
+
+    /**
+     * Handle updated lines (Upsert)
+     */
+    for (const line of event.updated_lines ?? []) {
+      const properties: Record<string, string> = {
+        odoo_product_id: String(line.product_id),
+      };
+
+      if (line.changed_fields?.quantity) {
+        properties.quantity = String(line.changed_fields.quantity.new);
+      }
+
+      if (line.changed_fields?.price_subtotal) {
+        properties.amount = String(line.changed_fields.price_subtotal.new);
+      }
+
+      if (line.changed_fields?.price_unit) {
+        properties.price = String(line.changed_fields.price_unit.new);
+      }
+
+      if (line.changed_fields?.discount) {
+        properties.discount = String(line.changed_fields.discount.new);
+      }
+
+      if (line.product_name) {
+        properties.name = line.product_name;
+      }
+
+      const existing = existingLineItems.get(String(line.product_id));
+
+      if (existing) {
+        if (Object.keys(properties).length > 1) {
+          batchUpdateInput.inputs.push({
+            id: existing.id,
+            properties,
+          });
+        }
+      } else {
+        batchCreateInput.inputs.push({
+          properties: {
+            name: line.product_name,
+            quantity: String(line.changed_fields?.quantity?.new ?? 0),
+            amount: String(line.changed_fields?.price_subtotal?.new ?? 0),
+            price: String(line.changed_fields?.price_unit?.new ?? 0),
+            odoo_product_id: String(line.product_id),
+          },
+          associations: association,
+        });
+      }
+    }
+
+    await Promise.all([
+      batchCreateInput.inputs.length ? this.hubspotService.createBatchLineItems(jobId, batchCreateInput) : Promise.resolve(),
+
+      batchUpdateInput.inputs.length ? this.hubspotService.updateBatchLineItems(jobId, batchUpdateInput) : Promise.resolve(),
+    ]);
+
+    this.logger.verbose(`Line Item Sync Completed | Created: ${batchCreateInput.inputs.length} | Updated: ${batchUpdateInput.inputs.length}`);
   }
 
   public async odooUpsertContactProcess(jobId: string, contact: SimplePublicObject, companyId?: string): Promise<number | null> {

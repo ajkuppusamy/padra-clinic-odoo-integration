@@ -10,7 +10,8 @@ export type OdooWebhookEventName =
   | 'product_update'
   | 'payment_created'
   | 'close_service'
-  | 'close_session';
+  | 'close_session'
+  | 'sale_order_line_update';
 
 export const ODOO_WEBHOOK_EVENT_NAMES: OdooWebhookEventName[] = [
   'quotation_status_update',
@@ -18,6 +19,7 @@ export const ODOO_WEBHOOK_EVENT_NAMES: OdooWebhookEventName[] = [
   'payment_created',
   'close_service',
   'close_session',
+  'sale_order_line_update',
   // 'payment_link_tabi_tamara',
   // 'product_create',
   // 'product_update',
@@ -39,6 +41,7 @@ export const ODOO_WEBHOOK_EVENT_LABELS: Record<OdooWebhookEventName, string> = {
   product_update: 'Product Updated',
   close_service: 'Close Service',
   close_session: 'Close Session',
+  sale_order_line_update: 'Sale Order Line Update',
 };
 
 export const ODOO_WEBHOOK_EVENT_GROUPS = {

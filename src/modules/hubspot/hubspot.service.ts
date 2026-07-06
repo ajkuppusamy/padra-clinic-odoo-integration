@@ -8,6 +8,7 @@ import { HubspotObjects } from '@common/enums';
 import {
   AssociationSpec,
   AssociationSpecAssociationCategoryEnum,
+  BatchInputSimplePublicObjectBatchInput,
   BatchInputSimplePublicObjectBatchInputForCreate,
   FilterGroup,
   FilterOperatorEnum,
@@ -267,6 +268,12 @@ export class HubspotService {
   public async createBatchLineItems(jobId: string, properties: BatchInputSimplePublicObjectBatchInputForCreate) {
     return this.executeTrackedRequest(jobId, RequestType.CREATE_LINEITEMS, null, '/line_items/batch/create', 'POST', properties, () =>
       this.hubspotLibService.createBatchObject(HubspotObjects.LINE_ITEMS, properties),
+    );
+  }
+
+  public async updateBatchLineItems(jobId: string, properties: BatchInputSimplePublicObjectBatchInput) {
+    return this.executeTrackedRequest(jobId, RequestType.UPDATE_LINEITEMS, null, '/line_items/batch/update', 'POST', properties, () =>
+      this.hubspotLibService.updateBatchObject(HubspotObjects.LINE_ITEMS, properties),
     );
   }
 
