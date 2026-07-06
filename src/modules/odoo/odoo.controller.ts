@@ -34,7 +34,7 @@ export class OdooController {
   @ApiResponse({ status: 200, description: 'Webhook processed successfully' })
   @ApiResponse({ status: 400, description: 'Invalid or missing event name' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async handlingWebhook(@Headers('x-webhook-event') eventHeader: string, @Body() body: OdooWebhookHandleDto) {
+  async handlingWebhook(@Headers('x-webhook-event') eventHeader: string, @Body() body: OdooWebhookHandleDto | any) {
     if (!eventHeader || !isValidOdooEventName(eventHeader)) throw new BadRequestException('Missing x-odoo-event or Invalid headeer');
 
     return await this.odooService.handlingWebhook(eventHeader, body);
