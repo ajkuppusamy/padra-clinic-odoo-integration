@@ -869,6 +869,12 @@ export class OdooService {
     ) as unknown as string;
   }
 
+  async getLineItemsBySalesOrderbyId(jobId: string, properties: SearchReadParams, property: string): Promise<BaseSearch[]> {
+    return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/sale.order.line/search_read', 'POST', properties, () =>
+      this.odooLibService.search(properties, '/sale.order.line/search_read'),
+    ) as unknown as BaseSearch[];
+  }
+
   private async executeTrackedRequest<T>(
     jobId: string,
     requestType: RequestType,
