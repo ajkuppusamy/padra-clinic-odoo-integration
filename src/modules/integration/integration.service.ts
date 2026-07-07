@@ -675,8 +675,8 @@ export class IntegrationService {
     const getProperties = (line: any, updated = false) => ({
       name: line.product_name,
       quantity: String(updated ? (line.changed_fields?.quantity?.new ?? 0) : line.quantity),
-      price: Number(updated ? (line.changed_fields?.price_unit?.new ?? 0) : line.price_unit).toFixed(2),
-      amount: Number(updated ? (line.changed_fields?.price_subtotal?.new ?? 0) : line.price_subtotal).toFixed(2),
+      price: String(Number(updated ? line.changed_fields?.price_unit?.new : (line.price_unit ?? 0))),
+      amount: String(Number(updated ? line.changed_fields?.price_subtotal?.new : (line.price_subtotal ?? 0))),
       ...(updated && {
         discount: String(line.changed_fields?.discount?.new ?? 0),
       }),
@@ -696,6 +696,13 @@ export class IntegrationService {
       batchCreateInput.inputs.length ? this.hubspotService.createBatchLineItems(jobId, batchCreateInput) : Promise.resolve(),
       batchUpdateInput.inputs.length ? this.hubspotService.updateBatchLineItems(jobId, batchUpdateInput) : Promise.resolve(),
     ]);
+    const totalAmount = lineItems.reduce((sum, item) => {
+      return sum + Number(item.properties?.amount ?? 0);
+    }, 0);
+
+    await this.updateDeal(jobId, dealId, {
+      amount: String(totalAmount),
+    });
 
     this.logger.verbose(`Line Item Sync Completed | Created: ${batchCreateInput.inputs.length} | Updated: ${batchUpdateInput.inputs.length}`);
   }
