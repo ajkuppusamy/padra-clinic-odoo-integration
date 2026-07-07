@@ -697,6 +697,8 @@ export class IntegrationService {
       batchUpdateInput.inputs.length ? this.hubspotService.updateBatchLineItems(jobId, batchUpdateInput) : Promise.resolve(),
     ]);
 
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
     const totalAmount = lineItems.reduce((sum, item) => {
       return sum + Number(item.properties?.amount ?? 0);
     }, 0);
@@ -705,7 +707,9 @@ export class IntegrationService {
       amount: String(totalAmount),
     });
 
-    this.logger.verbose(`Line Item Sync Completed | Created: ${batchCreateInput.inputs.length} | Updated: ${batchUpdateInput.inputs.length}`);
+    this.logger.verbose(
+      `Line Item Sync Completed | Created: ${batchCreateInput.inputs.length} | Updated: ${batchUpdateInput.inputs.length} and Total Amount Updated: ${totalAmount}`,
+    );
   }
 
   private async syncOdooLineItemIds(jobId: string, salesOrderId: number, companyId: number, hubspotLineItems: SimplePublicObject[]): Promise<void> {
