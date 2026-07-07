@@ -672,13 +672,15 @@ export class IntegrationService {
     const getProperties = (line: any, updated = false) => {
       const quantity = Number(updated ? (line.changed_fields?.quantity?.new ?? 1) : (line.quantity ?? 1));
 
-      const amount = Number(updated ? (line.changed_fields?.price_subtotal?.new ?? 0) : (line.price_subtotal ?? 0));
+      const amount = Number(updated ? (line.changed_fields?.price_total?.new ?? 0) : (line.price_total ?? 0));
+
+      const unitPrice = quantity > 0 ? amount / quantity : 0;
 
       return {
         name: line.product_name,
         quantity: String(quantity),
-        price: String(quantity ? amount / quantity : 0), // Unit Price = Net Price / Quantity
-        amount: String(amount),
+        price: String(unitPrice),
+        amount: String(amount), // Tax Inclusive Amount
         ...(updated && {
           discount: String(line.changed_fields?.discount?.new ?? 0),
         }),
