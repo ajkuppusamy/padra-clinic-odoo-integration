@@ -672,15 +672,12 @@ export class IntegrationService {
     const getProperties = (line: any, updated = false) => {
       const quantity = Number(updated ? (line.changed_fields?.quantity?.new ?? 1) : (line.quantity ?? 1));
 
-      const amount = Number(updated ? (line.changed_fields?.price_total?.new ?? 0) : (line.price_total ?? 0));
-
-      const unitPrice = quantity > 0 ? amount / quantity : 0;
-
+      const priceTotal = Number(updated ? (line.changed_fields?.price_total?.new ?? 0) : (line.price_total ?? 0));
       return {
         name: line.product_name,
         quantity: String(quantity),
-        price: String(unitPrice),
-        amount: String(amount), // Tax Inclusive Amount
+        price: String(priceTotal / quantity), // Odoo Tax Included Price -> HubSpot Net Price
+        amount: String(priceTotal), // Line Total (Tax Included)
         ...(updated && {
           discount: String(line.changed_fields?.discount?.new ?? 0),
         }),
