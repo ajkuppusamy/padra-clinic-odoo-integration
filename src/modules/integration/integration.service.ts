@@ -655,13 +655,13 @@ export class IntegrationService {
       const existing = existingLineItems.get(String(lineId));
 
       if (existing) {
-        const quantity = sumQuantity ? String(Number(existing.properties?.quantity ?? 0) + Number(properties.quantity ?? 0)) : properties.quantity;
+        // const quantity = sumQuantity ? String(Number(existing.properties?.quantity ?? 0) + Number(properties.quantity ?? 0)) : properties.quantity;
 
         batchUpdateInput.inputs.push({
           id: existing.id,
           properties: {
             ...properties,
-            quantity,
+            //   quantity,
           },
         });
       } else {
@@ -697,7 +697,7 @@ export class IntegrationService {
       batchUpdateInput.inputs.length ? this.hubspotService.updateBatchLineItems(jobId, batchUpdateInput) : Promise.resolve(),
     ]);
     const totalAmount = lineItems.reduce((sum, item) => {
-      return sum + Number(item.properties?.amount ?? 0);
+      return sum + Number(item.properties?.price ?? 0);
     }, 0);
 
     await this.updateDeal(jobId, dealId, {
