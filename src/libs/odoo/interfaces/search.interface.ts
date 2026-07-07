@@ -5,6 +5,7 @@ export interface BaseSearch {
   email: string;
   [key: string]: any;
   company_id?: [number, string];
+  name?: string;
 }
 
 export interface ContactSearchResponse extends BaseSearch {}

@@ -651,13 +651,18 @@ export class IntegrationService {
       },
     ];
 
-    const upsert = (lineId: number, properties: Record<string, string>) => {
+    const upsert = (lineId: number, properties: Record<string, string>, sumQuantity = false) => {
       const existing = existingLineItems.get(String(lineId));
 
       if (existing) {
+        const quantity = sumQuantity ? String(Number(existing.properties?.quantity ?? 0) + Number(properties.quantity ?? 0)) : properties.quantity;
+
         batchUpdateInput.inputs.push({
           id: existing.id,
-          properties,
+          properties: {
+            ...properties,
+            quantity,
+          },
         });
       } else {
         batchCreateInput.inputs.push({
@@ -667,38 +672,28 @@ export class IntegrationService {
       }
     };
 
-    /**
-     * Created Lines
-     */
+    const getProperties = (line: any, updated = false) => ({
+      name: line.product_name,
+      quantity: String(updated ? (line.changed_fields?.quantity?.new ?? 0) : line.quantity),
+      price: Number(updated ? (line.changed_fields?.price_unit?.new ?? 0) : line.price_unit).toFixed(2),
+      amount: Number(updated ? (line.changed_fields?.price_subtotal?.new ?? 0) : line.price_subtotal).toFixed(2),
+      ...(updated && {
+        discount: String(line.changed_fields?.discount?.new ?? 0),
+      }),
+      odoo_product_id: String(line.product_id),
+      odoo_line_item_id: String(line.line_id),
+    });
+
     for (const line of event.created_lines ?? []) {
-      upsert(line.line_id, {
-        name: line.product_name,
-        quantity: String(line.quantity),
-        price: Number(line.price_unit).toFixed(2),
-        amount: Number(line.price_subtotal).toFixed(2),
-        odoo_product_id: String(line.product_id),
-        odoo_line_item_id: String(line.line_id),
-      });
+      upsert(line.line_id, getProperties(line), true);
     }
 
-    /**
-     * Updated Lines
-     */
     for (const line of event.updated_lines ?? []) {
-      upsert(line.line_id, {
-        name: line.product_name,
-        quantity: String(line.changed_fields?.quantity?.new ?? 0),
-        price: Number(line.changed_fields?.price_unit?.new ?? 0).toFixed(2),
-        amount: Number(line.changed_fields?.price_subtotal?.new ?? 0).toFixed(2),
-        discount: String(line.changed_fields?.discount?.new ?? 0),
-        odoo_product_id: String(line.product_id),
-        odoo_line_item_id: String(line.line_id),
-      });
+      upsert(line.line_id, getProperties(line, true));
     }
 
     await Promise.all([
       batchCreateInput.inputs.length ? this.hubspotService.createBatchLineItems(jobId, batchCreateInput) : Promise.resolve(),
-
       batchUpdateInput.inputs.length ? this.hubspotService.updateBatchLineItems(jobId, batchUpdateInput) : Promise.resolve(),
     ]);
 
@@ -732,10 +727,10 @@ export class IntegrationService {
     };
 
     for (const odooLineItem of odooLineItems) {
-      const hubspotLineItem = hubspotLineItemMap.get(odooLineItem.display_name);
+      const hubspotLineItem = hubspotLineItemMap.get(odooLineItem?.name as string);
 
       if (!hubspotLineItem) {
-        this.logger.warn(`HubSpot Line Item not found: ${odooLineItem.display_name}`);
+        this.logger.warn(`HubSpot Line Item not found: ${odooLineItem.name} for Odoo Line Item ID: ${odooLineItem.id}`);
         continue;
       }
 
