@@ -699,9 +699,10 @@ export class IntegrationService {
       batchUpdateInput.inputs.length ? this.hubspotService.updateBatchLineItems(jobId, batchUpdateInput) : Promise.resolve(),
     ]);
 
+    const dealDetails = await this.hubspotService.getDealDetails(dealId, jobId);
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    const totalAmount = lineItems.reduce((sum, item) => {
+    const totalAmount = dealDetails.lineItems.reduce((sum, item) => {
       return sum + Number(item.properties?.amount ?? 0);
     }, 0);
 
