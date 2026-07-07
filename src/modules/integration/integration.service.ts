@@ -655,13 +655,10 @@ export class IntegrationService {
       const existing = existingLineItems.get(String(lineId));
 
       if (existing) {
-        // const quantity = sumQuantity ? String(Number(existing.properties?.quantity ?? 0) + Number(properties.quantity ?? 0)) : properties.quantity;
-
         batchUpdateInput.inputs.push({
           id: existing.id,
           properties: {
             ...properties,
-            //   quantity,
           },
         });
       } else {
@@ -672,17 +669,23 @@ export class IntegrationService {
       }
     };
 
-    const getProperties = (line: any, updated = false) => ({
-      name: line.product_name,
-      quantity: String(updated ? (line.changed_fields?.quantity?.new ?? 0) : line.quantity),
-      price: String(Number(updated ? line.changed_fields?.price_unit?.new : (line.price_unit ?? 0))),
-      amount: String(Number(updated ? line.changed_fields?.price_subtotal?.new : (line.price_subtotal ?? 0))),
-      ...(updated && {
-        discount: String(line.changed_fields?.discount?.new ?? 0),
-      }),
-      odoo_product_id: String(line.product_id),
-      odoo_line_item_id: String(line.line_id),
-    });
+    const getProperties = (line: any, updated = false) => {
+      const quantity = Number(updated ? (line.changed_fields?.quantity?.new ?? 1) : (line.quantity ?? 1));
+
+      const amount = Number(updated ? (line.changed_fields?.price_subtotal?.new ?? 0) : (line.price_subtotal ?? 0));
+
+      return {
+        name: line.product_name,
+        quantity: String(quantity),
+        price: String(quantity ? amount / quantity : 0), // Unit Price = Net Price / Quantity
+        amount: String(amount),
+        ...(updated && {
+          discount: String(line.changed_fields?.discount?.new ?? 0),
+        }),
+        odoo_product_id: String(line.product_id),
+        odoo_line_item_id: String(line.line_id),
+      };
+    };
 
     for (const line of event.created_lines ?? []) {
       upsert(line.line_id, getProperties(line), true);
