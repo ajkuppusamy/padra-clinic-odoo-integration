@@ -858,7 +858,7 @@ export class IntegrationService {
     /** Generate payment link and update in deal */
   }
 
-  async odooSalesOrderExecution(dealId: string, jobId: string) {
+  async odooSalesOrderExecution(dealId: string, jobId: string, data?: HubspotWebhookDto): Promise<{ success: boolean } | void> {
     const context = this.odooSalesOrderExecution.name;
     this.logger.log(`[${context}] Started`, {
       jobId,
@@ -870,11 +870,12 @@ export class IntegrationService {
 
       const { sales_order_id } = deal.properties;
 
-      if (sales_order_id) return await this.handleSkip(jobId, context, 'Already Quotation Exist');
+      if (sales_order_id && !['percentage_discount', 'fixed_amount_discount'].includes(data?.propertyName as string))
+        return await this.handleSkip(jobId, context, 'Already Quotation Exist and not a discount update event, skipping further processing');
 
       const isDiscounted = this.isSalesOrderIsDiscounted(deal);
 
-      if (isDiscounted) {
+      if (isDiscounted && ['percentage_discount', 'fixed_amount_discount'].includes(data?.propertyName as string)) {
         await this.handlingDiscountProcess(jobId, deal);
         return;
       }
