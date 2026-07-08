@@ -870,12 +870,15 @@ export class IntegrationService {
 
       const { sales_order_id } = deal.properties;
 
-      if (sales_order_id && !['percentage_discount', 'fixed_amount_discount'].includes(data?.propertyName as string))
-        return await this.handleSkip(jobId, context, 'Already Quotation Exist and not a discount update event, skipping further processing');
+      const allowedProperties = ['discount_type'];
+
+      if (sales_order_id && !allowedProperties.includes(data?.propertyName as string)) {
+        return await this.handleSkip(jobId, context, 'Quotation already exists and event is not a supported update. Skipping further processing.');
+      }
 
       const isDiscounted = this.isSalesOrderIsDiscounted(deal);
 
-      if (isDiscounted && ['percentage_discount', 'fixed_amount_discount'].includes(data?.propertyName as string)) {
+      if (isDiscounted && allowedProperties.includes(data?.propertyName as string)) {
         await this.handlingDiscountProcess(jobId, deal);
         return;
       }
