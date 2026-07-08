@@ -270,6 +270,8 @@ export class IntegrationService {
       odoo_payment_amount: paidAmount,
       odoo_last_payment_date: toHubspotDateValue(event?.payment_date),
       total_amount_paid: (odooTotalPaymentDone ?? 0) + paidAmount,
+      sales_order_refund_amount: event?.amount ?? '',
+      sales_order_refund_reason: event?.memo ?? '',
     };
 
     // if (paidAmount >= totalAmount) {
