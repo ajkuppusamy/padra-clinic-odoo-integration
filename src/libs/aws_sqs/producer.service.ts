@@ -56,7 +56,6 @@ export class AwsSqsProducerService {
             StringValue: new Date().toISOString(),
           },
         },
-        DelaySeconds: 3,
       });
 
       const result = await this.sqs.send(command);
