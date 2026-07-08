@@ -874,7 +874,7 @@ export class IntegrationService {
         `SalesOrderId: ${sales_order_id ?? 'Not Found'} (Exists: ${!!sales_order_id}) | DiscountType: ${discount_type ?? 'Not Found'} (Exists: ${!!discount_type})`,
       );
 
-      if ((sales_order_id && data?.propertyName != 'discount_type') || !discount_type) {
+      if (sales_order_id && data?.propertyName != 'discount_type' && data?.propertyName != 'line_items_created') {
         return await this.handleSkip(jobId, context, 'Quotation already exists and discount type is not provided.');
       }
 
