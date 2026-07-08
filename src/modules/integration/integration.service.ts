@@ -858,8 +858,8 @@ export class IntegrationService {
     /** Generate payment link and update in deal */
   }
 
-  async odooSalesOrderExecution(dealId: string, jobId: string, data?: HubspotWebhookDto): Promise<{ success: boolean } | void> {
-    const context = this.odooSalesOrderExecution.name;
+  async dealUpdateProcess(dealId: string, jobId: string, data?: HubspotWebhookDto): Promise<{ success: boolean } | void> {
+    const context = this.dealUpdateProcess.name;
     this.logger.log(`[${context}] Started`, {
       jobId,
       dealId,
@@ -874,15 +874,14 @@ export class IntegrationService {
         `SalesOrderId: ${sales_order_id ?? 'Not Found'} (Exists: ${!!sales_order_id}) | DiscountType: ${discount_type ?? 'Not Found'} (Exists: ${!!discount_type})`,
       );
 
-      if (sales_order_id && data?.propertyName != 'discount_type' && data?.propertyName != 'line_items_created') {
-        return await this.handleSkip(jobId, context, 'Quotation already exists and discount type is not provided.');
-      }
+      if (sales_order_id && data?.propertyName == 'discount_type') {
+        this.logger.verbose(`Discount Type Updated Event Detected for deal: ${dealId}, OrderId: ${sales_order_id}, initiating Odoo Discount Process`);
+        const isDiscounted = this.isSalesOrderIsDiscounted(deal);
 
-      const isDiscounted = this.isSalesOrderIsDiscounted(deal);
-
-      if (isDiscounted && data?.propertyName == 'discount_type' && discount_type) {
-        await this.handlingDiscountProcess(jobId, deal);
-        return;
+        if (isDiscounted && discount_type) {
+          await this.handlingDiscountProcess(jobId, deal);
+          return;
+        }
       }
 
       this.logger.log(`[${context}] Deal data fetched`, {
@@ -892,78 +891,75 @@ export class IntegrationService {
       });
       if (!contacts.length) return await this.handleSkip(jobId, context, 'Deal Associated Contact Not Found');
 
-      // const stageIds = this.configService.get<string>('HUBSPOT_QUOTATION_STAGE_IDS')?.split(',');
-      // this.logger.debug(`Deal Stage Ids : ${stageIds}`);
-      // if (!stageIds?.includes(deal.properties.dealstage as string)) return await this.handleSkip(jobId, context, 'Deal Stage not Quotation Process');
+      if (!sales_order_id && data?.propertyName == 'line_items_created') {
+        this.logger.verbose(`Line Items Created Event Detected for Deal ${dealId}, initiating Odoo Quotation Creation Process`);
+        const companyId = (await this.getCompanyIdFromPipeline(jobId, context, deal)) as string;
 
-      // const companyId = await this.dealPipeLineByGetCompanyId(jobId, deal);
+        if (companyId) {
+          const payload: SearchReadParams = {
+            ids: [Number(companyId)],
+            fields: ['display_name', 'name', 'create_date'],
+          };
+          const companyData = await this.odooService.readCompanyByIds(jobId, payload, 'id');
+          await this.updateDeal(jobId, dealId, { sales_order_company_name: companyData?.[0]?.display_name });
+        }
 
-      const companyId = (await this.getCompanyIdFromPipeline(jobId, context, deal)) as string;
+        const odooServicePlanTypeId = await this.getAnalyticAccountByServiceType(jobId, context, companyId, deal);
 
-      if (companyId) {
-        const payload: SearchReadParams = {
-          ids: [Number(companyId)],
-          fields: ['display_name', 'name', 'create_date'],
-        };
-        const companyData = await this.odooService.readCompanyByIds(jobId, payload, 'id');
-        await this.updateDeal(jobId, dealId, { sales_order_company_name: companyData?.[0]?.display_name });
+        // if (!odooServicePlanTypeId) return;
+
+        const primaryContact = contacts?.[0];
+
+        const odooContactId = await this.odooUpsertContactProcess(jobId, primaryContact);
+
+        if (!odooContactId) return await this.handleSkip(jobId, context, 'No associated contact found');
+
+        this.logger.debug(`total Line Items: ${lineItems.length}`);
+        if (!lineItems.length) return await this.handleSkip(jobId, context, 'No Associated LinItems');
+
+        const { hsOwner, dealOwnerPartnerId, callCenterDealOwnerPartnerId } = await this.upsertOwnerPartners(jobId, deal);
+
+        const quote = (await this.odooService.buildOdooObjectPayload(
+          deal,
+          String(companyId),
+          true,
+          'deals',
+          {
+            contactId: odooContactId,
+            call_centre_deal_owner_id: callCenterDealOwnerPartnerId,
+            deal_owner_id: dealOwnerPartnerId,
+            odooServicePlanTypeId: odooServicePlanTypeId as string,
+          },
+          lineItems,
+        )) as ValsList;
+
+        const quotation = (await this.createQuotation(jobId, context, quote)) as number[];
+
+        const quoteId = (await this.createHubspotQuote(jobId, context, dealId, deal, quotation, lineItems, hsOwner as PublicOwner)) as SimplePublicObject;
+
+        const offlinePaymentMethod = [PaymentMethod.CASH, PaymentMethod.CREDIT, PaymentMethod.DEBIT];
+
+        const isOffline = offlinePaymentMethod.includes(deal?.properties?.payment_method as PaymentMethod);
+
+        this.logger.verbose(`Payment Method : ${deal?.properties?.payment_method}`);
+
+        if (isOffline) {
+          await this.handleOfflineFlow(jobId, quoteId.id as string, {
+            quotation_id: String(quotation[0]),
+          });
+        } else {
+          await this.handleOdooInvoiceUpsertProcess(jobId, deal, lineItems, quotation?.[0], primaryContact);
+        }
+
+        const reportLink = await this.odooService.generateSalesOrderReportLink(jobId, { ids: [quotation?.[0]] }, 'id');
+        await this.hubspotService.updateDealById(jobId, deal.id, { sales_order_id: quotation?.[0], sales_order_preview_link: reportLink ?? '' });
+
+        await this.syncOdooLineItemIds(jobId, quotation?.[0], Number(companyId), lineItems);
+        await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
+        this.logger.log(`[${context}] Completed successfully`, { jobId });
+
+        return { success: true };
       }
-
-      const odooServicePlanTypeId = await this.getAnalyticAccountByServiceType(jobId, context, companyId, deal);
-
-      // if (!odooServicePlanTypeId) return;
-
-      const primaryContact = contacts?.[0];
-
-      const odooContactId = await this.odooUpsertContactProcess(jobId, primaryContact);
-
-      if (!odooContactId) return await this.handleSkip(jobId, context, 'No associated contact found');
-
-      this.logger.debug(`total Line Items: ${lineItems.length}`);
-      if (!lineItems.length) return await this.handleSkip(jobId, context, 'No Associated LinItems');
-
-      const { hsOwner, dealOwnerPartnerId, callCenterDealOwnerPartnerId } = await this.upsertOwnerPartners(jobId, deal);
-
-      const quote = (await this.odooService.buildOdooObjectPayload(
-        deal,
-        String(companyId),
-        true,
-        'deals',
-        {
-          contactId: odooContactId,
-          call_centre_deal_owner_id: callCenterDealOwnerPartnerId,
-          deal_owner_id: dealOwnerPartnerId,
-          odooServicePlanTypeId: odooServicePlanTypeId as string,
-        },
-        lineItems,
-      )) as ValsList;
-
-      const quotation = (await this.createQuotation(jobId, context, quote)) as number[];
-
-      const quoteId = (await this.createHubspotQuote(jobId, context, dealId, deal, quotation, lineItems, hsOwner as PublicOwner)) as SimplePublicObject;
-
-      const offlinePaymentMethod = [PaymentMethod.CASH, PaymentMethod.CREDIT, PaymentMethod.DEBIT];
-
-      const isOffline = offlinePaymentMethod.includes(deal?.properties?.payment_method as PaymentMethod);
-
-      this.logger.verbose(`Payment Method : ${deal?.properties?.payment_method}`);
-
-      if (isOffline) {
-        await this.handleOfflineFlow(jobId, quoteId.id as string, {
-          quotation_id: String(quotation[0]),
-        });
-      } else {
-        await this.handleOdooInvoiceUpsertProcess(jobId, deal, lineItems, quotation?.[0], primaryContact);
-      }
-
-      const reportLink = await this.odooService.generateSalesOrderReportLink(jobId, { ids: [quotation?.[0]] }, 'id');
-      await this.hubspotService.updateDealById(jobId, deal.id, { sales_order_id: quotation?.[0], sales_order_preview_link: reportLink ?? '' });
-
-      await this.syncOdooLineItemIds(jobId, quotation?.[0], Number(companyId), lineItems);
-      await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
-      this.logger.log(`[${context}] Completed successfully`, { jobId });
-
-      return { success: true };
     } catch (error) {
       this.logger.error(`[${context}] Failed`, {
         jobId,
