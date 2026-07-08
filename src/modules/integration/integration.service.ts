@@ -866,20 +866,19 @@ export class IntegrationService {
     });
 
     try {
+      await new Promise((resolve) => setTimeout(resolve, 3000));
       const { deal, contacts, lineItems } = await this.hubspotService.getDealDetails(dealId, jobId);
 
       const { sales_order_id, discount_type } = deal.properties;
+      this.logger.verbose(
+        `SalesOrderId: ${sales_order_id ?? 'Not Found'} (Exists: ${!!sales_order_id}) | DiscountType: ${discount_type ?? 'Not Found'} (Exists: ${!!discount_type})`,
+      );
 
       if ((sales_order_id && data?.propertyName != 'discount_type') || !discount_type) {
         return await this.handleSkip(jobId, context, 'Quotation already exists and discount type is not provided.');
       }
 
       const isDiscounted = this.isSalesOrderIsDiscounted(deal);
-
-      this.logger.debug(`[${context}] isDiscounted: ${isDiscounted}`, {
-        jobId,
-        discountType: discount_type,
-      });
 
       if (isDiscounted && data?.propertyName == 'discount_type' && discount_type) {
         await this.handlingDiscountProcess(jobId, deal);
