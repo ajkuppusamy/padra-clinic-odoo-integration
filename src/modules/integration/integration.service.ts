@@ -370,6 +370,17 @@ export class IntegrationService {
     const conformation = await this.odooService.salesOrderDiscountConformation(jobId, { ids: [discountId], context: {} }, 'id');
 
     this.logger.debug(`Conformation data : ${JSON.stringify(conformation)}`);
+    const salesOrderRes = await this.odooService.saleOrderRead(
+      jobId,
+      {
+        ids: [odoo_quotation_id],
+        fields: ['display_name', 'name', 'create_date', 'invoice_ids', 'amount_total'],
+      },
+      'id',
+    );
+
+    const isDealUpdated = salesOrderRes?.[0]?.amount_total ? await this.updateDeal(jobId, dealId, { amount: salesOrderRes?.[0]?.amount_total ?? 0 }) : false;
+    this.logger.debug(`Deal Updated with new amount = ${salesOrderRes?.[0]?.amount_total ?? 0} : ${isDealUpdated}`);
 
     await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
     return;
@@ -690,10 +701,12 @@ export class IntegrationService {
     };
 
     for (const line of event.created_lines ?? []) {
+      if (line.product_name?.toLowerCase().includes('discount')) continue;
       upsert(line.line_id, getProperties(line), true);
     }
 
     for (const line of event.updated_lines ?? []) {
+      if (line.product_name?.toLowerCase().includes('discount')) continue;
       upsert(line.line_id, getProperties(line, true));
     }
 
