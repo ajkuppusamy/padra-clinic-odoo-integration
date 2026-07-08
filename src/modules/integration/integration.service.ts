@@ -870,9 +870,7 @@ export class IntegrationService {
       const { deal, contacts, lineItems } = await this.hubspotService.getDealDetails(dealId, jobId);
 
       const { sales_order_id, discount_type } = deal.properties;
-      this.logger.verbose(
-        `SalesOrderId: ${sales_order_id ?? 'Not Found'} (Exists: ${!!sales_order_id}) | DiscountType: ${discount_type ?? 'Not Found'} (Exists: ${!!discount_type})`,
-      );
+      this.logger.verbose(`SalesOrderId: ${sales_order_id || 'N/A'} | DiscountType: ${discount_type || 'N/A'} | Property: ${data?.propertyName || 'N/A'}`);
 
       if (sales_order_id && data?.propertyName == 'discount_type') {
         this.logger.verbose(`Discount Type Updated Event Detected for deal: ${dealId}, OrderId: ${sales_order_id}, initiating Odoo Discount Process`);
@@ -959,6 +957,15 @@ export class IntegrationService {
         this.logger.log(`[${context}] Completed successfully`, { jobId });
 
         return { success: true };
+      }
+      if (sales_order_id) {
+        this.logger.verbose(`Sales Order Id already exists for deal: ${dealId}, skipping quotation creation process`);
+        await this.queueRepository.updateStatus(
+          jobId,
+          QueueStatus.SKIPPED,
+          `Sales Order Id already exists for deal: ${dealId}, salesOrder: ${sales_order_id}, skipping quotation creation process`,
+        );
+        return;
       }
     } catch (error) {
       this.logger.error(`[${context}] Failed`, {
