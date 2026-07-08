@@ -442,7 +442,8 @@ export class IntegrationService {
 
     const isAdvancePayment = await this.isAdvancedPayment(jobId, event, eventName);
 
-    if (isAdvancePayment) {
+    if (isAdvancePayment || event?.payment_type == 'outbound') {
+      this.logger.verbose(`Is Advance Payment: ${isAdvancePayment}, handling advance payment flow  Payment Type: ${event.payment_type}`);
       await this.handlingAdvancePayment(jobId, event, eventName);
       return;
     }
@@ -461,9 +462,9 @@ export class IntegrationService {
     //   await this.handleInvoiceProcess(jobId, deal, event, invoiceId, contacts);
     // }
 
-    if (event.payment_type === 'outbound') {
-      return await this.handlingRefund(jobId, event, dealId);
-    }
+    // if (event.payment_type === 'outbound') {
+    //   return await this.handlingRefund(jobId, event, dealId);
+    // }
 
     await this.updateDeal(jobId, dealId, payload);
 
