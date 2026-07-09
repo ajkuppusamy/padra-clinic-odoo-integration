@@ -373,7 +373,7 @@ export class IntegrationService {
     const salesOrderRes = await this.odooService.saleOrderRead(
       jobId,
       {
-        ids: [odoo_quotation_id],
+        ids: [Number(odoo_quotation_id)],
         fields: ['display_name', 'name', 'create_date', 'invoice_ids', 'amount_total'],
       },
       'id',
