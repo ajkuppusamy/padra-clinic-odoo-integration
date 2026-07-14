@@ -484,6 +484,8 @@ export class IntegrationService {
     // if (event.payment_type === 'outbound') {
     //   return await this.handlingRefund(jobId, event, dealId);
     // }
+    delete payload.sales_order_refund_amount;
+    delete payload.sales_order_refund_reason;
 
     await this.updateDeal(jobId, dealId, payload);
 
