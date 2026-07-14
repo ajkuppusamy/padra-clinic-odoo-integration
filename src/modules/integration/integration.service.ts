@@ -31,6 +31,7 @@ import { CloseServiceWebhook, InvoiceCreatedEvent, PaymentCreatedEvent, ProductC
 import { OdooService } from '@modules/odoo/odoo.service';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { BlobOptions } from 'buffer';
 
 @Injectable()
 export class IntegrationService {
@@ -398,7 +399,7 @@ export class IntegrationService {
     return isAdvancePayment === true || isAdvancePayment === 'true';
   }
 
-  private async handlingAdvancePayment(jobId: string, event: PaymentCreatedEvent, eventName?: string) {
+  private async handlingAdvancePayment(jobId: string, event: PaymentCreatedEvent, isAdavnce: boolean, isRefund = false) {
     this.logger.debug(`${this.logger.debug(`${this.handlingAdvancePayment.name}`)}`);
     const payload: SearchReadParams = {
       domain: [['id', '=', `${event?.payment_id}`]],
@@ -430,6 +431,11 @@ export class IntegrationService {
       hasProperties: !!dealProperties,
       propertyKeys: Object.keys(dealProperties),
     });
+    if (isAdavnce) {
+      delete dealProperties.sales_order_refund_amount;
+      delete dealProperties.sales_order_refund_reason;
+    }
+
     await this.updateDeal(jobId, dealId, dealProperties);
     await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
     return;
@@ -457,7 +463,7 @@ export class IntegrationService {
 
     if (isAdvancePayment || event?.payment_type == 'outbound') {
       this.logger.verbose(`Is Advance Payment: ${isAdvancePayment}, handling advance payment flow  Payment Type: ${event.payment_type}`);
-      await this.handlingAdvancePayment(jobId, event, eventName);
+      await this.handlingAdvancePayment(jobId, event, isAdvancePayment, event?.partner_type == 'outbound');
       return;
     }
 
