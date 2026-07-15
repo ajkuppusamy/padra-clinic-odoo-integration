@@ -400,7 +400,8 @@ export class IntegrationService {
   }
 
   private async handlingAdvancePayment(jobId: string, event: PaymentCreatedEvent, isAdavnce: boolean, isRefund = false) {
-    this.logger.debug(`${this.logger.debug(`${this.handlingAdvancePayment.name}`)}`);
+    this.logger.debug(`${this.logger.debug(`${this.handlingAdvancePayment.name} --> Is Refund : ${isRefund}`)}`);
+
     const payload: SearchReadParams = {
       domain: [['id', '=', `${event?.payment_id}`]],
       fields: ['display_name', 'is_advance_payment', 'sale_order_id'],
@@ -422,7 +423,10 @@ export class IntegrationService {
       await this.handleSkip(jobId, this.handlingAdvancePayment.name, `Deal not found based on Quote Id : ${quoteId}`);
       return;
     }
-    const deal = await this.hubspotService.fetchDeal(dealId, jobId);
+
+    if (isRefund) return await this.handlingRefund(jobId, event, dealId);
+
+    const { invoices, deal } = await this.hubspotService.getDealDetails(dealId, jobId, [HubspotObjects.INVOICES]);
     const dealProperties = await this.buildPaymentUpdatePayload(deal, event);
     this.logger.debug('dealProperties before updateDeal:', {
       jobId,
@@ -436,6 +440,18 @@ export class IntegrationService {
       delete dealProperties.sales_order_refund_reason;
     }
 
+    const totalAmount = Number(deal?.properties.amount ?? 0);
+    const totalPaidAmount = Number(dealProperties?.total_amount_paid ?? 0);
+
+    let invoiceStatus = 'open';
+    if (totalPaidAmount >= totalAmount) {
+      invoiceStatus = 'paid';
+    }
+
+    if (invoices[0]?.id)
+      await this.hubspotService.updateInvoiceById(jobId, invoices[0].id, {
+        hs_invoice_status: invoiceStatus,
+      });
     await this.updateDeal(jobId, dealId, dealProperties);
     await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
     return;
@@ -467,41 +483,9 @@ export class IntegrationService {
       return;
     }
 
-    const invoiceId = await this.getInvoiceId(jobId, event, context);
-    if (!invoiceId) return;
-    const dealId = await this.getDealId(jobId, invoiceId, context);
-    const dealsMetaData = await this.hubspotService.getDealDetails(dealId, jobId);
-    const deal = dealsMetaData.deal;
-
-    const payload = await this.buildPaymentUpdatePayload(deal, event);
-    delete payload?.dealstage;
-    this.logger.debug(`Deal Properties : ${JSON.stringify(payload)}`);
-
     if (event.payment_type === 'outbound') {
-      return await this.handlingRefund(jobId, event, dealId);
+      await this.handlingAdvancePayment(jobId, event, isAdvancePayment, event?.partner_type == 'outbound');
     }
-
-    delete payload.sales_order_refund_amount;
-    delete payload.sales_order_refund_reason;
-
-    await this.updateDeal(jobId, dealId, payload);
-
-    const totalAmount = Number(deal?.properties?.amount ?? 0);
-    const totalPaidAmount = Number(payload?.total_amount_paid ?? 0);
-
-    let invoiceStatus = 'open';
-    if (totalPaidAmount >= totalAmount) {
-      invoiceStatus = 'paid';
-    }
-
-    if (invoiceId)
-      await this.hubspotService.updateInvoiceById(jobId, invoiceId, {
-        hs_invoice_status: invoiceStatus,
-      });
-
-    await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
-
-    this.logger.debug(`[${context}] Completed`, { jobId });
   }
 
   public async handlingInvoiceCreated(jobId: string, event: InvoiceCreatedEvent, eventName?: string, isCompleted?: boolean): Promise<void> {
