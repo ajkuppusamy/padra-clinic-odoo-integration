@@ -681,6 +681,7 @@ export class HubspotService {
       products?.products?.map(async (product) => {
         const quantity = Number(product.quantity ?? 1);
         const price = Number(product.price ?? 0);
+        const OdooUnitPrice = Number(product.odoo_unit_price);
 
         // // Calculate line item total
         totalAmount += quantity * price;
@@ -692,6 +693,7 @@ export class HubspotService {
             quantity: quantity.toString(),
             price: price.toString(),
             odoo_product_id: product.id.toString(),
+            odoo_product_unit_price: String(OdooUnitPrice) ?? product.base_unit_price?.toString(),
           },
           associations: [
             {

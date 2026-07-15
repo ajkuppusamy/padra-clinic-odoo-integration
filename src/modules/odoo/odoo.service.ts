@@ -629,7 +629,7 @@ export class OdooService {
           product_id: productId,
           name: item?.properties?.name ?? 'Item',
           quantity: Number(item?.properties?.quantity ?? 1),
-          price_unit: Number(item?.properties?.price ?? 0),
+          price_unit: Number(item?.properties?.odoo_product_unit_price ?? 0), // price
         };
       })
       .filter(Boolean);

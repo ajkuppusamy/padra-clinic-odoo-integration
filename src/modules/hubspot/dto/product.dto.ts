@@ -45,6 +45,14 @@ export class ProductDto {
   @Type(() => Number)
   @IsNumber()
   quantity!: number;
+
+  @ApiProperty()
+  @IsOptional()
+  @ValidateIf((o) => typeof o.discountValue === 'number')
+  @IsNumber()
+  @ValidateIf((o) => typeof o.discountValue === 'string')
+  @IsString()
+  odoo_unit_price?: number | string;
 }
 
 export class HubspotProductDto {

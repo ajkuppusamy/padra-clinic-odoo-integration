@@ -89,7 +89,7 @@ export const HUBSPOT_OBJECT_PROPERTIES: Record<string, string[]> = {
     'sales_order_refund_reason',
   ],
 
-  line_items: ['name', 'quantity', 'price', 'amount', 'hs_product_id', 'createdate', 'hs_object_id', 'odoo_product_id', 'odoo_line_item_id'],
+  line_items: ['name', 'quantity', 'price', 'amount', 'hs_product_id', 'createdate', 'hs_object_id', 'odoo_product_id', 'odoo_line_item_id', 'odoo_product_unit_price'],
 
   products: ['name', 'description', 'price', 'hs_sku', 'hs_cost_of_goods_sold', 'createdate', 'hs_object_id', 'odoo_product_id'],
 
