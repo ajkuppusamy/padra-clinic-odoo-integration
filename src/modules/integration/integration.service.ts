@@ -461,9 +461,9 @@ export class IntegrationService {
 
     const isAdvancePayment = await this.isAdvancedPayment(jobId, event, eventName);
 
-    if (isAdvancePayment || event?.payment_type == 'outbound') {
+    if (isAdvancePayment || event?.payment_type == 'inbound') {
       this.logger.verbose(`Is Advance Payment: ${isAdvancePayment}, handling advance payment flow  Payment Type: ${event.payment_type}`);
-      await this.handlingAdvancePayment(jobId, event, isAdvancePayment, event?.partner_type == 'outbound');
+      await this.handlingAdvancePayment(jobId, event, isAdvancePayment, event?.partner_type == 'inbound');
       return;
     }
 
@@ -477,13 +477,10 @@ export class IntegrationService {
     delete payload?.dealstage;
     this.logger.debug(`Deal Properties : ${JSON.stringify(payload)}`);
 
-    // if (payload?.amount !== event?.amount_paid?.toString()) {
-    //   await this.handleInvoiceProcess(jobId, deal, event, invoiceId, contacts);
-    // }
+    if (event.payment_type === 'outbound') {
+      return await this.handlingRefund(jobId, event, dealId);
+    }
 
-    // if (event.payment_type === 'outbound') {
-    //   return await this.handlingRefund(jobId, event, dealId);
-    // }
     delete payload.sales_order_refund_amount;
     delete payload.sales_order_refund_reason;
 
@@ -723,19 +720,29 @@ export class IntegrationService {
       batchUpdateInput.inputs.length ? this.hubspotService.updateBatchLineItems(jobId, batchUpdateInput) : Promise.resolve(),
     ]);
 
-    const dealDetails = await this.hubspotService.getDealDetails(dealId, jobId);
     await new Promise((resolve) => setTimeout(resolve, 2000));
+    // const totalAmount = dealDetails.lineItems.reduce((sum, item) => {
+    //   return sum + Number(item.properties?.amount ?? 0);
+    // }, 0);
 
-    const totalAmount = dealDetails.lineItems.reduce((sum, item) => {
-      return sum + Number(item.properties?.amount ?? 0);
-    }, 0);
+    //  await this.updateDeal(jobId, dealId, {
+    //   amount: String(totalAmount),
+    // });
 
-    await this.updateDeal(jobId, dealId, {
-      amount: String(totalAmount),
-    });
+    const salesOrderRes = await this.odooService.saleOrderRead(
+      jobId,
+      {
+        ids: [Number(event.sale_order.order_id)],
+        fields: ['display_name', 'name', 'create_date', 'invoice_ids', 'amount_total'],
+      },
+      'id',
+    );
+
+    const isDealUpdated = salesOrderRes?.[0]?.amount_total ? await this.updateDeal(jobId, dealId, { amount: salesOrderRes?.[0]?.amount_total ?? 0 }) : false;
+    this.logger.debug(`Deal Updated with new amount = ${salesOrderRes?.[0]?.amount_total ?? 0} : ${isDealUpdated}`);
 
     this.logger.verbose(
-      `Line Item Sync Completed | Created: ${batchCreateInput.inputs.length} | Updated: ${batchUpdateInput.inputs.length} and Total Amount Updated: ${totalAmount}`,
+      `Line Item Sync Completed | Created: ${batchCreateInput.inputs.length} | Updated: ${batchUpdateInput.inputs.length} and Total Amount Updated: ${isDealUpdated}`,
     );
   }
 
