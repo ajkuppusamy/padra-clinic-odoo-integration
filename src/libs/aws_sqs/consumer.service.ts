@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnApplicationBootstrap, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SqsMessageHandler } from '@ssut/nestjs-sqs';
 import type { Message } from '@ssut/nestjs-sqs/dist/sqs.types';

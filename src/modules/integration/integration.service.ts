@@ -6,9 +6,7 @@ import {
   AssociationSpecAssociationCategoryEnum,
   BatchInputSimplePublicObjectBatchInput,
   BatchInputSimplePublicObjectBatchInputForCreate,
-  HttpFile,
   SimplePublicObject,
-  SimplePublicObjectInputForCreate,
   SimplePublicObjectWithAssociations,
 } from '@hubspot/api-client/lib/codegen/crm/companies';
 import { BatchInputSimplePublicObjectId } from '@hubspot/api-client/lib/codegen/crm/deals';
@@ -32,7 +30,6 @@ import { CloseServiceWebhook, InvoiceCreatedEvent, PaymentCreatedEvent, ProductC
 import { OdooService } from '@modules/odoo/odoo.service';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { BlobOptions } from 'buffer';
 
 @Injectable()
 export class IntegrationService {
@@ -1351,66 +1348,5 @@ export class IntegrationService {
     const contact = await this.hubspotService.fetchContact(recordId, jobId);
     await this.odooUpsertContactProcess(jobId, contact);
     return await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
-  }
-
-  public async fileUploadProcess(jobId: string, event: HubspotWebhookDto) {
-    this.logger.debug(`${this.fileUploadProcess.name}`);
-
-    // Path for folder structure (without .pdf)
-    const folderPath = `sales_orders/${event.objectId}/${event.propertyValue}`;
-
-    // Get file from Odoo
-    const buffer = await this.odooService.getFileBySalesOrderId(jobId, event.propertyValue as string, 'id');
-
-    // Get deal details
-    const { deal } = await this.hubspotService.getDealDetails(String(event.objectId), jobId);
-
-    const { dealname } = deal.properties;
-
-    const payload: HttpFile = {
-      data: buffer.toString('base64'),
-      name: `${dealname}.pdf`,
-    };
-
-    // Upload file using the fixed method
-    const uploadedFile = await this.hubspotService.fileUpload(
-      jobId,
-      payload,
-      undefined, // folderId
-      folderPath, // folderPath (without .pdf)
-      `${dealname}.pdf`, // fileName
-      undefined, // charsetHunch
-      JSON.stringify({
-        access: 'PRIVATE',
-        // Optional: add other options like duplicateValidation
-        duplicateValidation: 'REPLACE', // or 'SKIP', 'ERROR'
-      }),
-    );
-
-    // Create note with attachment
-    const note: SimplePublicObjectInputForCreate = {
-      properties: {
-        hs_note_body: `Sales Order document uploaded: ${dealname}.pdf`,
-        hs_timestamp: String(toHubspotDateValue(new Date())),
-        hs_attachment_ids: uploadedFile?.id,
-      },
-      associations: [
-        {
-          to: {
-            id: deal.id,
-          },
-          types: [
-            {
-              associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined,
-              associationTypeId: 214,
-            },
-          ],
-        },
-      ],
-    };
-
-    await this.hubspotService.createNote(jobId, note);
-    await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
-    return;
   }
 }

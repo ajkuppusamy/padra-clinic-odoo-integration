@@ -12,7 +12,6 @@ import { JwtService } from '@nestjs/jwt';
 import { HubspotModule } from '@libs/hubspot/hubspot.module';
 import { AwsSqsModule } from '@libs/aws_sqs/awsSqs.module';
 import { OdooModule } from '@libs/odoo/odoo.module';
-import { AuthGuard } from '@common/guard';
 import { LoggerMiddleware } from '@common/middlewares';
 
 // CONTROLLER_IMPORTS

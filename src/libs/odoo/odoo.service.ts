@@ -1,7 +1,7 @@
 import { Injectable, HttpException, HttpStatus, Logger, UnauthorizedException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
-import { firstValueFrom, Observable, throwError, timer } from 'rxjs';
-import { catchError, retry } from 'rxjs/operators';
+import { firstValueFrom, Observable, timer } from 'rxjs';
+import { retry } from 'rxjs/operators';
 import PQueue from 'p-queue';
 import { OdooConfigService } from './config/odoo.config';
 import {
