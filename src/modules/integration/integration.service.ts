@@ -631,12 +631,12 @@ export class IntegrationService {
   }
 
   private async syncLineItems(jobId: string, dealId: string, event: SaleOrderLineUpdateWebhook, lineItems: SimplePublicObject[]): Promise<void> {
-    const existingLineItems = new Map(lineItems.filter((item) => item.properties?.odoo_line_item_id).map((item) => [String(item.properties.odoo_line_item_id), item]));
-    // Odoo current active line ids
-    const currentOdooLineIds = new Set<string>();
+    this.logger.debug(`${this.syncLineItems.name}: ${jobId} : deal ID ${dealId} : ${event.sale_order.order_id}`);
 
-    // HubSpot record ids to delete
-    const deleteHubspotIds = new Set<string>();
+    const existingLineItems = new Map(lineItems.filter((item) => item.properties?.odoo_line_item_id).map((item) => [String(item.properties.odoo_line_item_id), item]));
+
+    // Only HubSpot IDs which need delete (quantity = 0)
+    const deleteLineItemIds = new Set<string>();
 
     const batchCreateInput: BatchInputSimplePublicObjectBatchInputForCreate = {
       inputs: [],
@@ -693,50 +693,86 @@ export class IntegrationService {
 
     // CREATE
     for (const line of event.created_lines ?? []) {
-      if (line.product_name?.toLowerCase().includes('discount')) continue;
-
-      currentOdooLineIds.add(String(line.line_id));
+      // skip discount line
+      if (line.product_name?.toLowerCase().includes('discount')) {
+        continue;
+      }
 
       upsert(line.line_id, getProperties(line));
     }
 
     // UPDATE
     for (const line of event.updated_lines ?? []) {
-      if (line.product_name?.toLowerCase().includes('discount')) continue;
+      // skip discount line
+      if (line.product_name?.toLowerCase().includes('discount')) {
+        continue;
+      }
 
       const quantity = Number(line.changed_fields?.quantity?.new ?? 1);
 
-      const existing = existingLineItems.get(String(line.line_id));
-
-      // quantity 0 => delete only this line
+      // Quantity 0 => DELETE ONLY THIS LINE
       if (quantity === 0) {
+        const existing = existingLineItems.get(String(line.line_id));
         if (existing) {
-          deleteHubspotIds.add(existing.id);
+          deleteLineItemIds.add(existing.id);
         }
-
         continue;
       }
-      currentOdooLineIds.add(String(line.line_id));
+      // quantity changed => UPDATE
       upsert(line.line_id, getProperties(line, true));
     }
 
+    // CREATE + UPDATE API
     await Promise.all([
       batchCreateInput.inputs.length ? this.hubspotService.createBatchLineItems(jobId, batchCreateInput) : Promise.resolve(),
       batchUpdateInput.inputs.length ? this.hubspotService.updateBatchLineItems(jobId, batchUpdateInput) : Promise.resolve(),
     ]);
-    await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    for (const item of lineItems) {
-      const odooId = String(item.properties?.odoo_line_item_id ?? '');
-
-      if (odooId && !currentOdooLineIds.has(odooId)) {
-        deleteHubspotIds.add(item.id);
-      }
+    // DELETE ONLY QUANTITY 0 ITEMS
+    if (deleteLineItemIds.size) {
+      await this.deleteHubSpotLineItems(jobId, deleteLineItemIds);
     }
 
-    if (deleteHubspotIds.size) {
-      await this.deleteHubSpotLineItems(jobId, deleteHubspotIds);
+    const salesOrderRes = await this.odooService.saleOrderRead(
+      jobId,
+      {
+        ids: [Number(event.sale_order.order_id)],
+        fields: ['display_name', 'name', 'create_date', 'invoice_ids', 'amount_total'],
+      },
+      'id',
+    );
+
+    const odooLineItemsIds = await this.odooService.getLineItemsBySalesOrderbyId(
+      jobId,
+      {
+        domain: [['order_id', '=', Number(event.sale_order.order_id)]],
+        fields: ['id', 'display_name'],
+      },
+      'id',
+    );
+
+    const existIds = new Set(odooLineItemsIds.map((line) => String(line.id)));
+
+    const mismatchingHubSpotLineItemIds = lineItems
+      .filter((item) => {
+        const odooLineItemId = String(item.properties?.odoo_line_item_id ?? '');
+        return odooLineItemId && !existIds.has(odooLineItemId);
+      })
+      .map((item) => item.id);
+
+    if (mismatchingHubSpotLineItemIds.length) {
+      await this.deleteHubSpotLineItems(jobId, new Set(mismatchingHubSpotLineItemIds));
     }
+
+    const isDealUpdated = salesOrderRes?.[0]?.amount_total
+      ? await this.updateDeal(jobId, dealId, {
+          amount: salesOrderRes[0].amount_total,
+        })
+      : false;
+
+    this.logger.debug(`Deal Updated amount=${salesOrderRes?.[0]?.amount_total} : ${isDealUpdated}`);
+
+    this.logger.verbose(`Line Item Sync Completed | Created:${batchCreateInput.inputs.length} Updated:${batchUpdateInput.inputs.length} Deleted:${deleteLineItemIds.size}`);
   }
 
   private async deleteHubSpotLineItems(jobId: string, hubspotIds: Set<string>): Promise<void> {
