@@ -72,6 +72,7 @@ export class AwsSqsConsumerService {
       }
     } catch (error) {
       this.logger.error(`Failed to process message from queue ${process.env.AWS_Q1_QUEUE_NAME}`, (error as Error)?.stack ?? String(error));
+      await this.awsSqsProducerService.deleteMessage(this.configService.get<string>('AWS_Q1_QUEUE_URL') ?? '', message?.['receiptHandle'] ?? message?.['ReceiptHandle'] ?? '');
     }
   }
 }

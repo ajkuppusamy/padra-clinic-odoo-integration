@@ -5,6 +5,7 @@ import {
   AssociationSpec,
   BatchInputSimplePublicObjectBatchInput,
   BatchInputSimplePublicObjectBatchInputForCreate,
+  BatchInputSimplePublicObjectId,
   BatchReadInputSimplePublicObjectId,
   BatchResponseSimplePublicObject,
   CollectionResponseSimplePublicObjectWithAssociationsForwardPaging,
@@ -414,6 +415,36 @@ export class HubspotService {
         return result as BatchResponseSimplePublicObject;
       } catch (error) {
         this.logger.error(`Failed to batch update ${objectType}: ${error?.['message']}`, error?.['stack']);
+        throw error;
+      }
+    });
+  }
+
+  /**
+   * Deletes multiple HubSpot objects in a single batch request.
+   *
+   * This method leverages HubSpot's Batch Archive API to delete multiple objects
+   * in one request. It executes the request through an internal queue to
+   * control concurrency and rate limits.
+   *
+   * @param {HubspotObjects} objectType - The type of HubSpot object to delete (e.g., contacts, deals, companies, line_items).
+   * @param {BatchInputSimplePublicObjectId} batchInput - Payload containing object IDs to delete.
+   *
+   * @returns {Promise<void>} A promise that resolves when delete operation completes.
+   *
+   * @throws {Error} Throws an error if the batch delete operation fails.
+   */
+  async deleteBatchObject(objectType: HubspotObjects, batchInput: BatchInputSimplePublicObjectId): Promise<void> {
+    return this.queue.add(async () => {
+      try {
+        this.logger.debug(`Batch deleting ${objectType} | count: ${batchInput.inputs.length}`);
+
+        await this.hubspotClient.crm.objects.batchApi.archive(objectType, batchInput);
+
+        this.logger.log(`Deleted ${objectType} | count: ${batchInput.inputs.length}`);
+      } catch (error) {
+        this.logger.error(`Failed to batch delete ${objectType}: ${error?.['message']}`, error?.['stack']);
+
         throw error;
       }
     });

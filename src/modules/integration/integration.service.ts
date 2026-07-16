@@ -11,6 +11,7 @@ import {
   SimplePublicObjectInputForCreate,
   SimplePublicObjectWithAssociations,
 } from '@hubspot/api-client/lib/codegen/crm/companies';
+import { BatchInputSimplePublicObjectId } from '@hubspot/api-client/lib/codegen/crm/deals';
 import { PublicOwner } from '@hubspot/api-client/lib/codegen/crm/owners/models/all';
 import { HubDiscountType } from '@libs/hubspot/enums/discount-type.enum';
 import { DiscountType } from '@libs/odoo/enums';
@@ -633,6 +634,8 @@ export class IntegrationService {
     this.logger.debug(`${this.syncLineItems.name}: ${jobId} : deal ID ${dealId} : ${event.sale_order.order_id}`);
 
     const existingLineItems = new Map(lineItems.filter((item) => item.properties?.odoo_line_item_id).map((item) => [String(item.properties.odoo_line_item_id), item]));
+    const deleteLineItemIds = new Set<string>([]);
+    const odooLineIds = new Set<string>([...(event.created_lines ?? []).map((line) => String(line.line_id)), ...(event.updated_lines ?? []).map((line) => String(line.line_id))]);
 
     const batchCreateInput: BatchInputSimplePublicObjectBatchInputForCreate = {
       inputs: [],
@@ -696,6 +699,18 @@ export class IntegrationService {
 
     for (const line of event.updated_lines ?? []) {
       if (line.product_name?.toLowerCase().includes('discount')) continue;
+      const quantity = Number(line.changed_fields?.quantity?.new ?? 1);
+
+      if (quantity == 0) {
+        const existing = existingLineItems.get(String(line.line_id));
+
+        if (existing) {
+          deleteLineItemIds.add(existing.id);
+          await this.deleteHubSpotLineItems(jobId, lineItems, deleteLineItemIds);
+        }
+
+        continue;
+      }
       upsert(line.line_id, getProperties(line, true));
     }
 
@@ -712,6 +727,7 @@ export class IntegrationService {
     //  await this.updateDeal(jobId, dealId, {
     //   amount: String(totalAmount),
     // });
+    await this.deleteHubSpotLineItems(jobId, lineItems, odooLineIds);
 
     const salesOrderRes = await this.odooService.saleOrderRead(
       jobId,
@@ -728,6 +744,26 @@ export class IntegrationService {
     this.logger.verbose(
       `Line Item Sync Completed | Created: ${batchCreateInput.inputs.length} | Updated: ${batchUpdateInput.inputs.length} and Total Amount Updated: ${isDealUpdated}`,
     );
+  }
+
+  private async deleteHubSpotLineItems(jobId: string, lineItems: SimplePublicObject[], odooLineIds: Set<string>): Promise<void> {
+    const batchDeleteInput: BatchInputSimplePublicObjectId = {
+      inputs: [],
+    };
+
+    for (const item of lineItems) {
+      const odooLineItemId = String(item.properties?.odoo_line_item_id ?? '');
+
+      if (odooLineItemId && !odooLineIds.has(odooLineItemId)) {
+        batchDeleteInput.inputs.push({
+          id: item.id,
+        });
+      }
+    }
+
+    if (batchDeleteInput.inputs.length) await this.hubspotService.batchDeleteLineItems(jobId, batchDeleteInput);
+
+    if (!batchDeleteInput.inputs.length) this.logger.debug('No HubSpot line items to delete.');
   }
 
   private async syncOdooLineItemIds(jobId: string, salesOrderId: number, companyId: number, hubspotLineItems: SimplePublicObject[]): Promise<void> {

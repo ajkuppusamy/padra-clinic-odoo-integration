@@ -10,6 +10,7 @@ import {
   AssociationSpecAssociationCategoryEnum,
   BatchInputSimplePublicObjectBatchInput,
   BatchInputSimplePublicObjectBatchInputForCreate,
+  BatchInputSimplePublicObjectId,
   FilterGroup,
   FilterOperatorEnum,
   HttpFile,
@@ -274,6 +275,12 @@ export class HubspotService {
   public async updateBatchLineItems(jobId: string, properties: BatchInputSimplePublicObjectBatchInput) {
     return this.executeTrackedRequest(jobId, RequestType.UPDATE_LINEITEMS, null, '/line_items/batch/update', 'POST', properties, () =>
       this.hubspotLibService.updateBatchObject(HubspotObjects.LINE_ITEMS, properties),
+    );
+  }
+
+  public batchDeleteLineItems(jobId: string, properties: BatchInputSimplePublicObjectId) {
+    return this.executeTrackedRequest(jobId, RequestType.DELETE_LINEITEMS, null, '/line_items/batch/delete', 'POST', properties, () =>
+      this.hubspotLibService.deleteBatchObject(HubspotObjects.LINE_ITEMS, properties),
     );
   }
 

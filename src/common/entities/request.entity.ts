@@ -31,6 +31,7 @@ export enum RequestType {
   CREATE_NOTE = 'create_note',
   GENERATE_REPORT_LINK = 'generate_report_link',
   UPDATE_LINEITEMS = `update_lineItems`,
+  DELETE_LINEITEMS = 'delete_lineItems',
 }
 
 export enum RequestStatus {
