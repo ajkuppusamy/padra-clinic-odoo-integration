@@ -634,8 +634,8 @@ export class IntegrationService {
     this.logger.debug(`${this.syncLineItems.name}: ${jobId} : deal ID ${dealId} : ${event.sale_order.order_id}`);
 
     const existingLineItems = new Map(lineItems.filter((item) => item.properties?.odoo_line_item_id).map((item) => [String(item.properties.odoo_line_item_id), item]));
-    const deleteLineItemIds = new Set<string>([]);
-    const odooLineIds = new Set<string>([...(event.created_lines ?? []).map((line) => String(line.line_id)), ...(event.updated_lines ?? []).map((line) => String(line.line_id))]);
+    const currentOdooLineIds = new Set<string>();
+    const deleteLineItemIds = new Set<string>();
 
     const batchCreateInput: BatchInputSimplePublicObjectBatchInputForCreate = {
       inputs: [],
@@ -694,19 +694,20 @@ export class IntegrationService {
 
     for (const line of event.created_lines ?? []) {
       if (line.product_name?.toLowerCase().includes('discount')) continue;
+      currentOdooLineIds.add(String(line.line_id));
       upsert(line.line_id, getProperties(line), true);
     }
 
     for (const line of event.updated_lines ?? []) {
       if (line.product_name?.toLowerCase().includes('discount')) continue;
       const quantity = Number(line.changed_fields?.quantity?.new ?? 1);
+      currentOdooLineIds.add(String(line.line_id));
 
       if (quantity == 0) {
         const existing = existingLineItems.get(String(line.line_id));
 
         if (existing) {
           deleteLineItemIds.add(existing.id);
-          await this.deleteHubSpotLineItems(jobId, lineItems, deleteLineItemIds);
         }
 
         continue;
@@ -727,7 +728,7 @@ export class IntegrationService {
     //  await this.updateDeal(jobId, dealId, {
     //   amount: String(totalAmount),
     // });
-    await this.deleteHubSpotLineItems(jobId, lineItems, odooLineIds);
+    await this.deleteHubSpotLineItems(jobId, lineItems, deleteLineItemIds);
 
     const salesOrderRes = await this.odooService.saleOrderRead(
       jobId,
