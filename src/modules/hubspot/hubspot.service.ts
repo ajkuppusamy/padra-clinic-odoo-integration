@@ -242,6 +242,30 @@ export class HubspotService {
     return result?.results ?? [];
   }
 
+  async getContactInvoices(contactId: string) {
+    const dealAssociations = await this.hubspotLibService.getHubspotAssociations(HubspotObjects.CONTACTS, contactId, HubspotObjects.DEALS);
+    const dealIds = dealAssociations.map((deal) => deal.toObjectId);
+
+    if (!dealIds.length) {
+      return [];
+    }
+    const invoiceAssociationResults = await Promise.all(
+      dealIds.map((dealId) => this.hubspotLibService.getHubspotAssociations(HubspotObjects.DEALS, dealId, HubspotObjects.INVOICES)),
+    );
+    const invoiceIds = [...new Set(invoiceAssociationResults.flat().map((invoice) => invoice.toObjectId))];
+    if (!invoiceIds.length) {
+      return [];
+    }
+    const invoicesResponse = await this.hubspotLibService.getBatchObject(HubspotObjects.INVOICES, {
+      inputs: invoiceIds.map((id) => ({
+        id,
+      })),
+      properties: HUBSPOT_OBJECT_PROPERTIES[HubspotObjects.INVOICES] ?? [],
+      propertiesWithHistory: [],
+    });
+    return invoicesResponse.results;
+  }
+
   public async updateQuoteById(jobId: string, quoteId: string, properties: Record<string, any>) {
     return this.executeTrackedRequest(jobId, RequestType.UPDATE_QUOTE, quoteId, `/quotes/${quoteId}`, 'PUT', properties, () =>
       this.hubspotLibService.updateHubspotObject(HubspotObjects.QUOTES, quoteId, properties),

@@ -1,7 +1,7 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, Param, UseGuards } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post, Param, UseGuards, Query, Get } from '@nestjs/common';
 import { HubspotService } from './hubspot.service';
 import { HubspotAuthGuard } from '@common/guard';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiHeaders } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiHeaders, ApiQuery } from '@nestjs/swagger';
 import { HubspotProductDto, HubspotWebhookDto, ProductDto } from './dto';
 
 @ApiTags('Hubspot')
@@ -128,5 +128,34 @@ export class HubspotController {
       },
       'file_upload',
     );
+  }
+  @HttpCode(HttpStatus.OK)
+  @Get('contacts/:contactId/invoices')
+  @ApiParam({
+    name: 'contactId',
+    description: 'HubSpot Contact ID',
+    example: '264179469280',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Contact associated invoices fetched successfully',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden',
+  })
+  @ApiHeaders([
+    {
+      name: 'api-key',
+      required: true,
+      description: 'API key for authentication',
+    },
+  ])
+  async getContactInvoices(@Param('contactId') contactId: string) {
+    return await this.hubspotService.getContactInvoices(contactId);
   }
 }
