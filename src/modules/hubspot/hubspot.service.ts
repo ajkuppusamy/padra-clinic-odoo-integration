@@ -308,6 +308,7 @@ export class HubspotService {
     deal: SimplePublicObjectWithAssociations | SimplePublicObject,
     lineItems: SimplePublicObject[],
     contacts: SimplePublicObject[],
+    invoicePreviewLink?: string,
   ): SimplePublicObjectInputForCreate {
     return {
       properties: {
@@ -317,6 +318,7 @@ export class HubspotService {
         hs_invoice_date: new Date().toISOString(),
         odoo_quotation_id: quotationId ?? '',
         odoo_invoice_id: invoiceId ?? '',
+        invoice_preview_link: invoicePreviewLink ?? '',
       },
       associations: [
         ...(deal?.id ? [{ to: { id: deal?.id }, types: [{ associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined, associationTypeId: 175 }] }] : []),
@@ -337,8 +339,9 @@ export class HubspotService {
     lineItems: SimplePublicObject[],
     contact: SimplePublicObject[],
     status?: 'paid' | 'open' | 'draft',
+    invoicePreviewLink?: string,
   ) {
-    const payload = this.buildCreateInvoicePayload(quotation.quotation_id as string, quotation.invoice_id as string, deal, lineItems, contact);
+    const payload = this.buildCreateInvoicePayload(quotation.quotation_id as string, quotation.invoice_id as string, deal, lineItems, contact, invoicePreviewLink);
 
     this.logger.debug(`${this.processInvoice.name} payload=${JSON.stringify(payload)}`);
 

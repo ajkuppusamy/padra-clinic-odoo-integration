@@ -821,6 +821,12 @@ export class OdooService {
     ) as unknown as number[];
   }
 
+  async accountInvoiceReportLink(jobId: string, properties: SearchReadParams, property: string): Promise<string> {
+    return this.executeTrackedRequest(jobId, RequestType.CREATE_INVOICE, property, '/account.move/action_share_report_link', 'POST', properties, () =>
+      this.odooLibService.search(properties, '/account.move/action_share_report_link'),
+    ) as unknown as string;
+  }
+
   async paymentInvoiceCreate(jobId: string, properties: ValsList, property: string): Promise<number[]> {
     return this.executeTrackedRequest(jobId, RequestType.CREATE_INVOICE, property, '/sale.advance.payment.inv/create', 'POST', properties, () =>
       this.odooLibService.search(properties, '/sale.advance.payment.inv/create'),

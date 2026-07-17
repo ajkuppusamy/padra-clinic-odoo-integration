@@ -139,6 +139,7 @@ export const HUBSPOT_OBJECT_PROPERTIES: Record<string, string[]> = {
 
     'odoo_invoice_id', // custom
     'odoo_quotation_id', // custom
+    'invoice_preview_link',
   ],
 
   owners: ['hs_given_name', 'hs_family_name', 'hs_email'],
