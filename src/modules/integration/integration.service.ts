@@ -944,11 +944,11 @@ export class IntegrationService {
       await new Promise((resolve) => setTimeout(resolve, 3000));
       const { deal, contacts, lineItems } = await this.hubspotService.getDealDetails(dealId, jobId);
 
-      const { sales_order_id, discount_type } = deal.properties;
-      this.logger.verbose(`SalesOrderId: ${sales_order_id || 'N/A'} | DiscountType: ${discount_type || 'N/A'} | Property: ${data?.propertyName || 'N/A'}`);
+      const { sales_order_id_v2, discount_type } = deal.properties;
+      this.logger.verbose(`SalesOrderId: ${sales_order_id_v2 || 'N/A'} | DiscountType: ${discount_type || 'N/A'} | Property: ${data?.propertyName || 'N/A'}`);
 
-      if (sales_order_id && data?.propertyName == 'discount_type') {
-        this.logger.verbose(`Discount Type Updated Event Detected for deal: ${dealId}, OrderId: ${sales_order_id}, initiating Odoo Discount Process`);
+      if (sales_order_id_v2 && data?.propertyName == 'discount_type') {
+        this.logger.verbose(`Discount Type Updated Event Detected for deal: ${dealId}, OrderId: ${sales_order_id_v2}, initiating Odoo Discount Process`);
         const isDiscounted = this.isSalesOrderIsDiscounted(deal);
 
         if (isDiscounted && discount_type) {
@@ -964,7 +964,7 @@ export class IntegrationService {
       });
       if (!contacts.length) return await this.handleSkip(jobId, context, 'Deal Associated Contact Not Found');
 
-      if (!sales_order_id && data?.propertyName == 'line_items_created') {
+      if (!sales_order_id_v2 && data?.propertyName == 'line_items_created') {
         this.logger.verbose(`Line Items Created Event Detected for Deal ${dealId}, initiating Odoo Quotation Creation Process`);
         const companyId = (await this.getCompanyIdFromPipeline(jobId, context, deal)) as string;
 
@@ -1025,7 +1025,7 @@ export class IntegrationService {
         }
 
         const reportLink = await this.odooService.generateSalesOrderReportLink(jobId, { ids: [quotation?.[0]] }, 'id');
-        await this.hubspotService.updateDealById(jobId, deal.id, { sales_order_id: quotation?.[0], sales_order_preview_link: reportLink ?? '' });
+        await this.hubspotService.updateDealById(jobId, deal.id, { sales_order_id_v2: quotation?.[0], sales_order_preview_link: reportLink ?? '' });
 
         await this.syncOdooLineItemIds(jobId, quotation?.[0], Number(companyId), lineItems);
         await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
@@ -1033,12 +1033,12 @@ export class IntegrationService {
 
         return { success: true };
       }
-      if (sales_order_id) {
+      if (sales_order_id_v2) {
         this.logger.verbose(`Sales Order Id already exists for deal: ${dealId}, skipping quotation creation process`);
         await this.queueRepository.updateStatus(
           jobId,
           QueueStatus.SKIPPED,
-          `Sales Order Id already exists for deal: ${dealId}, salesOrder: ${sales_order_id}, skipping quotation creation process`,
+          `Sales Order Id already exists for deal: ${dealId}, salesOrder: ${sales_order_id_v2}, skipping quotation creation process`,
         );
         return;
       }
