@@ -649,6 +649,13 @@ export class OdooService {
       const key = `${companyId}_${currencyId}`;
       const pricelistId = pricelistMap[key];
 
+      this.logger.log(
+        `CompanyId: ${companyId}, CurrencyCode: ${properties?.properties?.deal_currency_code}, CurrencyId: ${currencyId}, PricelistKey: ${key}, PricelistId: ${pricelistId}`,
+      );
+
+      this.logger.debug('Currency Map', properties?.properties?.deal_currency_code);
+      this.logger.debug('Pricelist Map', pricelistMap);
+
       const isOdooPropertymap = (await this.configService.get<string>('IS_ODOO_PROPERTY_MAP'))?.toLowerCase() === 'true';
       const dealProperties = isOdooPropertymap
         ? {
@@ -671,6 +678,7 @@ export class OdooService {
             partner_id: Number(contactId ?? 0),
             partner_shipping_id: Number(contactId ?? 0),
             partner_invoice_id: Number(contactId ?? 0),
+            user_id: Number(deal_owner_id ?? 0),
             // warehouse_id: 1,
             date_order: new Date().toISOString().replace('T', ' ').split('.')[0],
             order_line: mappedLines.map((line) => [
