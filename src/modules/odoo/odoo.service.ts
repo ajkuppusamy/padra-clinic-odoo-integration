@@ -616,6 +616,8 @@ export class OdooService {
             contact_address: properties?.properties?.address ?? '',
             country_id: coutryId,
             state_id: stateId,
+            phone: properties?.properties?.phone ?? '',
+            civil_code: properties?.properties?.eid_pin ?? '',
           },
         ],
       };
