@@ -19,8 +19,8 @@ const configs: Record<Stage, Record<string, string>> = {
   prod: {
     SALE_SERVICE_TYPE_MAP: JSON.stringify({
       'Hair Transplant': 1,
-      Beauty: 4,
-      PRP: 2,
+      Beauty: 2,
+      PRP: 3,
       'Hair Transplant - Revisit': 1, // Using same service type for revisit as original procedure for easier reporting in HubSpot, can be changed if needed
       Products: 4,
     }),
