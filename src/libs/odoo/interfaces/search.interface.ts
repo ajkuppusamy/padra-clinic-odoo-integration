@@ -41,6 +41,7 @@ export interface Contact {
   city?: string;
   zip?: string;
   company_id: string;
+  phone?: string;
 }
 
 export interface SalesOrder {

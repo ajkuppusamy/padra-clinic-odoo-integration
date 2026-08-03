@@ -766,6 +766,12 @@ export class OdooService {
     ) as unknown as number[];
   }
 
+  async partnerWrite(jobId: string, properties: {}, property: string): Promise<boolean> {
+    return this.executeTrackedRequest(jobId, RequestType.UPDATE_CONTACT, property, '/res.partner/write', 'POST', properties, () =>
+      this.odooLibService.search(properties, '/res.partner/write'),
+    ) as unknown as boolean;
+  }
+
   async partnerSearch(jobId: string, properties: SearchReadParams, property: string): Promise<ContactSearchResponse[]> {
     return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/res.partner/search_read', 'POST', properties, () =>
       this.odooLibService.search(properties, '/res.partner/search_read'),
