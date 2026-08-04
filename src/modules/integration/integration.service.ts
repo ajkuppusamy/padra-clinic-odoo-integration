@@ -17,10 +17,12 @@ import {
   BaseSearch,
   ContactSearchResponse,
   CreateDiscount,
+  CreatedLine,
   CreateQuotationResponse,
   SaleOrderLineUpdateWebhook,
   SalesOrder,
   SearchReadParams,
+  UpdatedLine,
   ValsList,
 } from '@libs/odoo/interfaces';
 import { HubspotWebhookDto } from '@modules/hubspot/dto';
@@ -676,21 +678,35 @@ export class IntegrationService {
       }
     };
 
-    const getProperties = (line: any, updated = false) => {
-      const quantity = Number(updated ? (line.changed_fields?.quantity?.new ?? 1) : (line.quantity ?? 1));
-
-      const priceTotal = Number(updated ? (line.changed_fields?.price_total?.new ?? 0) : (line.price_total ?? 0));
-      return {
+    const getProperties = (line: CreatedLine | UpdatedLine, updated?: boolean) => {
+      const isUpdated = 'changed_fields' in line;
+      const properties: Record<string, string> = {
         name: line.product_name,
-        quantity: String(quantity),
-        price: String(priceTotal / quantity), // Odoo Tax Included Price -> HubSpot Net Price
-        amount: String(priceTotal), // Line Total (Tax Included)
-        ...(updated && {
-          discount: String(line.changed_fields?.discount?.new ?? 0),
-        }),
         odoo_product_id: String(line.product_id),
         odoo_line_item_id: String(line.line_id),
       };
+
+      if (!isUpdated) {
+        properties.quantity = String(line.quantity);
+        properties.price = String(line.price_total / line.quantity);
+        properties.amount = String(line.price_total);
+        properties.discount = String(line.discount);
+      } else {
+        if (line.changed_fields.quantity) {
+          properties.quantity = String(line.changed_fields.quantity.new);
+        }
+        if (line.changed_fields.price_total) {
+          properties.amount = String(line.changed_fields.price_total.new);
+          const quantity = line.changed_fields.quantity?.new;
+          if (quantity !== undefined && quantity !== 0) {
+            properties.price = String(line.changed_fields.price_total.new / quantity);
+          }
+        }
+        if (line.changed_fields.discount) {
+          properties.discount = String(line.changed_fields.discount.new);
+        }
+      }
+      return properties;
     };
 
     // CREATE
