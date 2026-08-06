@@ -221,9 +221,9 @@ export class OdooService {
   }
 
   private handleCatchError(error: any, method: string, path: string): never | null {
-    const skippedPaths = ['/res.users/create', '/res.users/search_read'];
-
-    if (skippedPaths.includes(path?.toLowerCase())) {
+    const normalizedPath = path?.toLowerCase();
+    if (normalizedPath?.startsWith('/res.users/')) {
+      this.logger.warn(`${method} ${path} failed: ${error.message}`);
       return null;
     }
 
