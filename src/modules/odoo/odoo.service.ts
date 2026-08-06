@@ -580,7 +580,7 @@ export class OdooService {
 
     const existingUser = await this.userSearchRead(jobId, searchPayload, 'login');
 
-    if (existingUser[0]?.id) return existingUser[0].id;
+    if (existingUser?.[0]?.id) return existingUser?.[0].id;
 
     const groupId = Number(this.configService.get<string>('ODOO_DEFAULT_GROUP_ID') ?? 10);
 
@@ -597,7 +597,7 @@ export class OdooService {
     };
 
     const createdUser = await this.createUser(jobId, createPayload, 'login');
-    return createdUser[0];
+    return createdUser?.[0];
   }
 
   async buildOdooObjectPayload(
