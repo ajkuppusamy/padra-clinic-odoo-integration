@@ -91,6 +91,13 @@ export class AuditService {
         let requests: Request[] = [];
         let responses: Response[] = [];
 
+        const [lastRequest, lastResponse] = await Promise.all([this.requestRepository.findByJobId(queue.jobId), this.responseRepository.findByJobId(queue.jobId)]);
+
+        result.lastLog = {
+          request: lastRequest,
+          response: lastResponse,
+        };
+
         if (isRequest) {
           requests = await this.requestRepository.findByJobId(queue.jobId);
 
@@ -102,10 +109,6 @@ export class AuditService {
 
           result.responses = responses?.length ? responses : [];
         }
-        result.lastLog = {
-          request: requests.length ? requests[requests.length - 1] : null,
-          response: responses.length ? responses[responses.length - 1] : null,
-        };
 
         return result;
       }),

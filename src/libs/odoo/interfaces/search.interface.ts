@@ -13,7 +13,7 @@ export interface ContactSearchResponse extends BaseSearch {}
 export interface CompanySearchResponse extends BaseSearch {}
 
 export interface SearchReadParams {
-  domain?: Array<[string, string, string | number | boolean | null | any]>;
+  domain?: Array<[string, string, string | number | boolean | null | any]> | any[];
   fields?: string[];
   limit?: number;
   offset?: number;
@@ -30,7 +30,7 @@ export interface InvoiceIds {
 }
 
 export interface ValsList {
-  vals_list: SalesOrder[] | Contact[] | Invoice[] | unknown[] | CreateDiscount[];
+  vals_list: SalesOrder[] | Contact[] | Invoice[] | unknown[] | CreateDiscount[] | UserCreateValues[];
 }
 
 export interface Contact {
@@ -91,4 +91,11 @@ export interface CreateDiscount {
   discount_type?: DiscountType;
   discount_amount?: number | string;
   discount_percentage?: number;
+}
+
+export interface UserCreateValues {
+  login: string;
+  name: string;
+  company_ids: number[];
+  group_ids: number[][];
 }

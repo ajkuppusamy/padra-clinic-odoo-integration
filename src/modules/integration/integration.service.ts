@@ -1010,6 +1010,8 @@ export class IntegrationService {
 
         const { hsOwner, dealOwnerPartnerId, callCenterDealOwnerPartnerId } = await this.upsertOwnerPartners(jobId, deal);
 
+        const userId = await this.odooService.userHandlingProcess(jobId, hsOwner as PublicOwner, companyId);
+
         const quote = (await this.odooService.buildOdooObjectPayload(
           deal,
           String(companyId),
@@ -1020,6 +1022,7 @@ export class IntegrationService {
             call_centre_deal_owner_id: callCenterDealOwnerPartnerId,
             deal_owner_id: dealOwnerPartnerId,
             odooServicePlanTypeId: odooServicePlanTypeId as string,
+            user_id: userId,
           },
           lineItems,
         )) as ValsList;

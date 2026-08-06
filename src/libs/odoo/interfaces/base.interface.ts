@@ -45,4 +45,5 @@ export interface OdooConfig {
   searchApiKey: string;
   searchAPIURL: string;
   fileUploadUrl: string;
+  groupId: string;
 }

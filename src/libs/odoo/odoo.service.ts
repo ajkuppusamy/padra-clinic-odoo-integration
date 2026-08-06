@@ -220,12 +220,18 @@ export class OdooService {
     throw new HttpException(error.message || 'Internal server error', HttpStatus.INTERNAL_SERVER_ERROR);
   }
 
-  private handleCatchError(error: any, method: string, path: string): never {
+  private handleCatchError(error: any, method: string, path: string): never | null {
+    const skippedPaths = ['/res.users/create', '/res.users/search_read'];
+
+    if (skippedPaths.includes(path?.toLowerCase())) {
+      return null;
+    }
+
     if (error instanceof HttpException) {
       throw error;
     }
     this.logger.error(`${method} ${path} unexpected: ${error.message}`);
-    throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    throw new HttpException(error.message, HttpStatus.UNPROCESSABLE_ENTITY);
   }
 
   /**
