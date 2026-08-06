@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { WebhookAuditDto } from './dto/audit.dto';
 import { QueueRepository, RequestRepository, ResponseRepository } from '@common/repositories';
+import { Request, Response } from '@common/entities';
 
 @Injectable()
 export class AuditService {
@@ -87,17 +88,24 @@ export class AuditService {
           ...queue,
         };
 
+        let requests: Request[] = [];
+        let responses: Response[] = [];
+
         if (isRequest) {
-          const requests = await this.requestRepository.findByJobId(queue.jobId);
+          requests = await this.requestRepository.findByJobId(queue.jobId);
 
           result.requests = requests?.length ? requests : [];
         }
 
         if (isResponse) {
-          const responses = await this.responseRepository.findByJobId(queue.jobId);
+          responses = await this.responseRepository.findByJobId(queue.jobId);
 
           result.responses = responses?.length ? responses : [];
         }
+        result.lastLog = {
+          request: requests.length ? requests[requests.length - 1] : null,
+          response: responses.length ? responses[responses.length - 1] : null,
+        };
 
         return result;
       }),
