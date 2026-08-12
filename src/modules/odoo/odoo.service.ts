@@ -804,9 +804,14 @@ export class OdooService {
   }
 
   async partnerWrite(jobId: string, properties: {}, property: string): Promise<boolean> {
-    return this.executeTrackedRequest(jobId, RequestType.UPDATE_CONTACT, property, '/res.partner/write', 'POST', properties, () =>
-      this.odooLibService.search(properties, '/res.partner/write'),
-    ) as unknown as boolean;
+    try {
+      return this.executeTrackedRequest(jobId, RequestType.UPDATE_CONTACT, property, '/res.partner/write', 'POST', properties, () =>
+        this.odooLibService.search(properties, '/res.partner/write'),
+      ) as unknown as boolean;
+    } catch (error) {
+      this.logger.error(`Error in partnerCreate:`, error);
+      return false;
+    }
   }
 
   async partnerSearch(jobId: string, properties: SearchReadParams, property: string): Promise<ContactSearchResponse[]> {
