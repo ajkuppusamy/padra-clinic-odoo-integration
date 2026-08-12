@@ -40,7 +40,7 @@ export class IntegrationService {
     private readonly hubspotService: HubspotService,
     private readonly odooService: OdooService,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
 
   /**
    * @deprecated This is the old function.
@@ -768,8 +768,8 @@ export class IntegrationService {
 
     const isDealUpdated = salesOrderRes?.[0]?.amount_total
       ? await this.updateDeal(jobId, dealId, {
-          amount: salesOrderRes[0].amount_total,
-        })
+        amount: salesOrderRes[0].amount_total,
+      })
       : false;
 
     this.logger.debug(`Deal Updated amount=${salesOrderRes?.[0]?.amount_total} : ${isDealUpdated}`);
@@ -974,7 +974,7 @@ export class IntegrationService {
             fields: ['display_name', 'name', 'create_date'],
           };
           const companyData = await this.odooService.readCompanyByIds(jobId, payload, 'id');
-          await this.updateDeal(jobId, dealId, { sales_order_company_name: companyData?.[0]?.display_name });
+          if (companyData?.length) await this.updateDeal(jobId, dealId, { sales_order_company_name: companyData?.[0]?.display_name });
         }
 
         const odooServicePlanTypeId = await this.getAnalyticAccountByServiceType(jobId, context, companyId, deal);
@@ -1281,8 +1281,8 @@ export class IntegrationService {
 
     const invoice = invoices?.[0]?.id
       ? await this.hubspotService.updateInvoiceById(jobId, invoices?.[0].id, {
-          hs_invoice_status: 'paid',
-        })
+        hs_invoice_status: 'paid',
+      })
       : null;
 
     this.logger.verbose(
