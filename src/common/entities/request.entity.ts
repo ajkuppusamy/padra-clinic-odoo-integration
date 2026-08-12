@@ -32,6 +32,7 @@ export enum RequestType {
   GENERATE_REPORT_LINK = 'generate_report_link',
   UPDATE_LINEITEMS = `update_lineItems`,
   DELETE_LINEITEMS = 'delete_lineItems',
+  CREATE_USER = 'create_user',
 }
 
 export enum RequestStatus {

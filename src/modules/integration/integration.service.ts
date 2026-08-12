@@ -17,10 +17,12 @@ import {
   BaseSearch,
   ContactSearchResponse,
   CreateDiscount,
+  CreatedLine,
   CreateQuotationResponse,
   SaleOrderLineUpdateWebhook,
   SalesOrder,
   SearchReadParams,
+  UpdatedLine,
   ValsList,
 } from '@libs/odoo/interfaces';
 import { HubspotWebhookDto } from '@modules/hubspot/dto';
@@ -676,21 +678,35 @@ export class IntegrationService {
       }
     };
 
-    const getProperties = (line: any, updated = false) => {
-      const quantity = Number(updated ? (line.changed_fields?.quantity?.new ?? 1) : (line.quantity ?? 1));
-
-      const priceTotal = Number(updated ? (line.changed_fields?.price_total?.new ?? 0) : (line.price_total ?? 0));
-      return {
+    const getProperties = (line: CreatedLine | UpdatedLine, updated?: boolean) => {
+      const isUpdated = 'changed_fields' in line;
+      const properties: Record<string, string> = {
         name: line.product_name,
-        quantity: String(quantity),
-        price: String(priceTotal / quantity), // Odoo Tax Included Price -> HubSpot Net Price
-        amount: String(priceTotal), // Line Total (Tax Included)
-        ...(updated && {
-          discount: String(line.changed_fields?.discount?.new ?? 0),
-        }),
         odoo_product_id: String(line.product_id),
         odoo_line_item_id: String(line.line_id),
       };
+
+      if (!isUpdated) {
+        properties.quantity = String(line.quantity);
+        properties.price = String(line.price_total / line.quantity);
+        properties.amount = String(line.price_total);
+        properties.discount = String(line.discount);
+      } else {
+        if (line.changed_fields.quantity) {
+          properties.quantity = String(line.changed_fields.quantity.new);
+        }
+        if (line.changed_fields.price_total) {
+          properties.amount = String(line.changed_fields.price_total.new);
+          const quantity = line.changed_fields.quantity?.new;
+          if (quantity !== undefined && quantity !== 0) {
+            properties.price = String(line.changed_fields.price_total.new / quantity);
+          }
+        }
+        if (line.changed_fields.discount) {
+          properties.discount = String(line.changed_fields.discount.new);
+        }
+      }
+      return properties;
     };
 
     // CREATE
@@ -850,7 +866,9 @@ export class IntegrationService {
       | SearchReadParams;
     const contactRead = await this.odooService.partnerSearch(jobId, searchPayload as SearchReadParams, 'email');
     if (contactRead.length) {
+      const updatePayload = (await this.odooService.buildOdooObjectPayload(contact, companyId, true, 'contacts', {}, [], undefined, undefined, jobId)) as ValsList;
       await this.hubspotService.updateContactById(jobId, contact.id, { odoo_contact_id: contactRead?.[0]?.id });
+      await this.odooService.partnerWrite(jobId, { ids: [contactRead?.[0]?.id], vals: updatePayload.vals_list?.[0] }, 'id');
       return contactRead?.[0]?.id;
     }
     const writeContactPayload = (await this.odooService.buildOdooObjectPayload(contact, companyId, true, 'contacts', {}, [], undefined, undefined, jobId)) as ValsList;
@@ -944,11 +962,11 @@ export class IntegrationService {
       await new Promise((resolve) => setTimeout(resolve, 3000));
       const { deal, contacts, lineItems } = await this.hubspotService.getDealDetails(dealId, jobId);
 
-      const { sales_order_id, discount_type } = deal.properties;
-      this.logger.verbose(`SalesOrderId: ${sales_order_id || 'N/A'} | DiscountType: ${discount_type || 'N/A'} | Property: ${data?.propertyName || 'N/A'}`);
+      const { sales_order_id_v2, discount_type } = deal.properties;
+      this.logger.verbose(`SalesOrderId: ${sales_order_id_v2 || 'N/A'} | DiscountType: ${discount_type || 'N/A'} | Property: ${data?.propertyName || 'N/A'}`);
 
-      if (sales_order_id && data?.propertyName == 'discount_type') {
-        this.logger.verbose(`Discount Type Updated Event Detected for deal: ${dealId}, OrderId: ${sales_order_id}, initiating Odoo Discount Process`);
+      if (sales_order_id_v2 && data?.propertyName == 'discount_type') {
+        this.logger.verbose(`Discount Type Updated Event Detected for deal: ${dealId}, OrderId: ${sales_order_id_v2}, initiating Odoo Discount Process`);
         const isDiscounted = this.isSalesOrderIsDiscounted(deal);
 
         if (isDiscounted && discount_type) {
@@ -964,7 +982,7 @@ export class IntegrationService {
       });
       if (!contacts.length) return await this.handleSkip(jobId, context, 'Deal Associated Contact Not Found');
 
-      if (!sales_order_id && data?.propertyName == 'line_items_created') {
+      if (!sales_order_id_v2 && data?.propertyName == 'line_items_created') {
         this.logger.verbose(`Line Items Created Event Detected for Deal ${dealId}, initiating Odoo Quotation Creation Process`);
         const companyId = (await this.getCompanyIdFromPipeline(jobId, context, deal)) as string;
 
@@ -992,6 +1010,8 @@ export class IntegrationService {
 
         const { hsOwner, dealOwnerPartnerId, callCenterDealOwnerPartnerId } = await this.upsertOwnerPartners(jobId, deal);
 
+        const userId = await this.odooService.userHandlingProcess(jobId, hsOwner as PublicOwner, companyId);
+
         const quote = (await this.odooService.buildOdooObjectPayload(
           deal,
           String(companyId),
@@ -1002,6 +1022,7 @@ export class IntegrationService {
             call_centre_deal_owner_id: callCenterDealOwnerPartnerId,
             deal_owner_id: dealOwnerPartnerId,
             odooServicePlanTypeId: odooServicePlanTypeId as string,
+            user_id: userId,
           },
           lineItems,
         )) as ValsList;
@@ -1025,7 +1046,7 @@ export class IntegrationService {
         }
 
         const reportLink = await this.odooService.generateSalesOrderReportLink(jobId, { ids: [quotation?.[0]] }, 'id');
-        await this.hubspotService.updateDealById(jobId, deal.id, { sales_order_id: quotation?.[0], sales_order_preview_link: reportLink ?? '' });
+        await this.hubspotService.updateDealById(jobId, deal.id, { sales_order_id_v2: quotation?.[0], sales_order_preview_link: reportLink ?? '' });
 
         await this.syncOdooLineItemIds(jobId, quotation?.[0], Number(companyId), lineItems);
         await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
@@ -1033,12 +1054,12 @@ export class IntegrationService {
 
         return { success: true };
       }
-      if (sales_order_id) {
+      if (sales_order_id_v2) {
         this.logger.verbose(`Sales Order Id already exists for deal: ${dealId}, skipping quotation creation process`);
         await this.queueRepository.updateStatus(
           jobId,
           QueueStatus.SKIPPED,
-          `Sales Order Id already exists for deal: ${dealId}, salesOrder: ${sales_order_id}, skipping quotation creation process`,
+          `Sales Order Id already exists for deal: ${dealId}, salesOrder: ${sales_order_id_v2}, skipping quotation creation process`,
         );
         return;
       }

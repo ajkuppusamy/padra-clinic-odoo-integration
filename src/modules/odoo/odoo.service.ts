@@ -25,6 +25,7 @@ import { ConfigService } from '@nestjs/config';
 import { HubspotService } from '@modules/hubspot/hubspot.service';
 import { OdooWebhookHandleDto } from './dto/odoo-webhook.dto';
 import { SimplePublicObject } from '@hubspot/api-client/lib/codegen/crm/companies';
+import { PublicOwner } from '@hubspot/api-client/lib/codegen/crm/owners/models/PublicOwner';
 
 @Injectable()
 export class OdooService {
@@ -570,6 +571,35 @@ export class OdooService {
     return id ?? '';
   }
 
+  async userHandlingProcess(jobId: string, dealOwner: Partial<PublicOwner>, companyId?: string | number): Promise<number | undefined> {
+    this.logger.debug(`${this.userHandlingProcess.name} dealOwner=${JSON.stringify(dealOwner?.email)} companyId=${companyId}`);
+    const searchPayload: SearchReadParams = {
+      domain: ['&', ['login', 'ilike', dealOwner?.email ?? ''], '|', ['active', '=', true], ['active', '=', false]],
+      fields: ['display_name', 'login', 'active'],
+    };
+
+    const existingUser = await this.userSearchRead(jobId, searchPayload, 'login');
+
+    if (existingUser?.[0]?.id) return existingUser?.[0].id;
+
+    const groupId = Number(this.configService.get<string>('ODOO_DEFAULT_GROUP_ID') ?? 10);
+
+    const fullName = dealOwner?.firstName && dealOwner?.lastName ? `${dealOwner.firstName} ${dealOwner.lastName}` : (dealOwner?.email ?? '');
+    const createPayload: ValsList = {
+      vals_list: [
+        {
+          login: dealOwner?.email ?? '',
+          name: fullName,
+          company_ids: [Number(companyId)],
+          group_ids: [[groupId]],
+        },
+      ],
+    };
+
+    const createdUser = await this.createUser(jobId, createPayload, 'login');
+    return createdUser?.[0];
+  }
+
   async buildOdooObjectPayload(
     properties: SimplePublicObject,
     companyId?: number | string,
@@ -580,7 +610,8 @@ export class OdooService {
       deal_owner_id,
       call_centre_deal_owner_id,
       odooServicePlanTypeId,
-    }: { contactId?: number; deal_owner_id?: number; call_centre_deal_owner_id?: number; odooServicePlanTypeId?: string } = {},
+      user_id,
+    }: { contactId?: number; deal_owner_id?: number; call_centre_deal_owner_id?: number; odooServicePlanTypeId?: string; user_id?: number } = {},
     lineItems?: SimplePublicObject[],
     odooQuoteId?: number,
     odooInvoiceId?: string | number,
@@ -616,6 +647,8 @@ export class OdooService {
             contact_address: properties?.properties?.address ?? '',
             country_id: coutryId,
             state_id: stateId,
+            phone: properties?.properties?.phone ?? '',
+            civil_code: properties?.properties?.eid_pin ?? '',
           },
         ],
       };
@@ -647,6 +680,13 @@ export class OdooService {
       const key = `${companyId}_${currencyId}`;
       const pricelistId = pricelistMap[key];
 
+      this.logger.log(
+        `CompanyId: ${companyId}, CurrencyCode: ${properties?.properties?.deal_currency_code}, CurrencyId: ${currencyId}, PricelistKey: ${key}, PricelistId: ${pricelistId}`,
+      );
+
+      this.logger.debug('Currency Map', properties?.properties?.deal_currency_code);
+      this.logger.debug('Pricelist Map', pricelistMap);
+
       const isOdooPropertymap = (await this.configService.get<string>('IS_ODOO_PROPERTY_MAP'))?.toLowerCase() === 'true';
       const dealProperties = isOdooPropertymap
         ? {
@@ -658,6 +698,7 @@ export class OdooService {
           sessions_completed: Number(properties?.properties?.sessions_completed ?? 0),
           deal_owner_id,
           call_centre_deal_owner_id,
+          user_id,
         }
         : {};
 
@@ -754,6 +795,12 @@ export class OdooService {
     return this.executeTrackedRequest(jobId, RequestType.CREATE_CONTACT, property, '/res.partner/create', 'POST', properties, () =>
       this.odooLibService.search(properties, '/res.partner/create'),
     ) as unknown as number[];
+  }
+
+  async partnerWrite(jobId: string, properties: {}, property: string): Promise<boolean> {
+    return this.executeTrackedRequest(jobId, RequestType.UPDATE_CONTACT, property, '/res.partner/write', 'POST', properties, () =>
+      this.odooLibService.search(properties, '/res.partner/write'),
+    ) as unknown as boolean;
   }
 
   async partnerSearch(jobId: string, properties: SearchReadParams, property: string): Promise<ContactSearchResponse[]> {
@@ -879,6 +926,18 @@ export class OdooService {
     return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/sale.order.line/search_read', 'POST', properties, () =>
       this.odooLibService.search(properties, '/sale.order.line/search_read'),
     ) as unknown as BaseSearch[];
+  }
+
+  async userSearchRead(jobId: string, properties: SearchReadParams, property: string): Promise<BaseSearch[]> {
+    return this.executeTrackedRequest(jobId, RequestType.SEARCH, property, '/res.users/search_read', 'POST', properties, () =>
+      this.odooLibService.search(properties, '/res.users/search_read'),
+    ) as unknown as BaseSearch[];
+  }
+
+  async createUser(jobId: string, properties: ValsList, property: string): Promise<number[]> {
+    return this.executeTrackedRequest(jobId, RequestType.CREATE_USER, property, '/res.users/create', 'POST', properties, () =>
+      this.odooLibService.search(properties, '/res.users/create'),
+    ) as unknown as number[];
   }
 
   private async executeTrackedRequest<T>(

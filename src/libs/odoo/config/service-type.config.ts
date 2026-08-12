@@ -17,25 +17,14 @@ const configs: Record<Stage, Record<string, string>> = {
   },
 
   prod: {
-    // map internal service names to Odoo service type IDs for production
-    // SALE_SERVICE_TYPE_MAP: JSON.stringify({
-    //   'Hair Transplant': 13,
-    //   Beauty: 14,
-    //   PRP: 15,
-    //   'Hair Transplant - Revisit': 16,
-    //   Products: 17,
-    // }),
-    // ODOO_ANALYTIC_PLAN_ID: '13',
-
-    // THIS IS DEV
     SALE_SERVICE_TYPE_MAP: JSON.stringify({
-      'Hair Transplant': 3,
-      Beauty: 4,
-      PRP: 5,
-      'Hair Transplant - Revisit': 3, // Using same service type for revisit as original procedure for easier reporting in HubSpot, can be changed if needed
-      Products: 7,
+      'Hair Transplant': 1,
+      Beauty: 2,
+      PRP: 3,
+      'Hair Transplant - Revisit': 1, // Using same service type for revisit as original procedure for easier reporting in HubSpot, can be changed if needed
+      Products: 4,
     }),
-    ODOO_ANALYTIC_PLAN_ID: '3',
+    ODOO_ANALYTIC_PLAN_ID: '1',
   },
 };
 
