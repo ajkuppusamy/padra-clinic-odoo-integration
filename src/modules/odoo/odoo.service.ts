@@ -691,7 +691,7 @@ export class OdooService {
       const dealProperties = isOdooPropertymap
         ? {
           sale_service_type_id,
-          sale_treatment_category_id: [[sale_treatment_category_id]],
+          sale_treatment_category_id: [[6, 0, [sale_treatment_category_id]]],
           // smr_amount_discount: Number(properties?.properties?.discount_amount ?? 0), // this property is currently not mapped in odoo, need to create custom field and map it in odoo before using this
           no_of_hairs: Number(properties?.properties?.number_of_hairs ?? properties?.properties?.number_of_hairs___cloned_ ?? 0),
           session: Number(properties?.properties?.number_of_sessions ?? 0),
