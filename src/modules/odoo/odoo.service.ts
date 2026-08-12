@@ -38,7 +38,7 @@ export class OdooService {
     private readonly queueRepository: QueueRepository,
     private readonly configService: ConfigService,
     private readonly hubService: HubspotService,
-  ) {}
+  ) { }
 
   async handlingWebhook(eventName: string, body: OdooWebhookHandleDto) {
     const method = this.handlingWebhook.name;
@@ -650,15 +650,15 @@ export class OdooService {
       const isOdooPropertymap = (await this.configService.get<string>('IS_ODOO_PROPERTY_MAP'))?.toLowerCase() === 'true';
       const dealProperties = isOdooPropertymap
         ? {
-            sale_service_type_id,
-            sale_treatment_category_id,
-            // smr_amount_discount: Number(properties?.properties?.discount_amount ?? 0), // this property is currently not mapped in odoo, need to create custom field and map it in odoo before using this
-            no_of_hairs: Number(properties?.properties?.number_of_hairs ?? properties?.properties?.number_of_hairs___cloned_ ?? 0),
-            session: Number(properties?.properties?.number_of_sessions ?? 0),
-            sessions_completed: Number(properties?.properties?.sessions_completed ?? 0),
-            deal_owner_id,
-            call_centre_deal_owner_id,
-          }
+          sale_service_type_id,
+          sale_treatment_category_id: [[sale_treatment_category_id]],
+          // smr_amount_discount: Number(properties?.properties?.discount_amount ?? 0), // this property is currently not mapped in odoo, need to create custom field and map it in odoo before using this
+          no_of_hairs: Number(properties?.properties?.number_of_hairs ?? properties?.properties?.number_of_hairs___cloned_ ?? 0),
+          session: Number(properties?.properties?.number_of_sessions ?? 0),
+          sessions_completed: Number(properties?.properties?.sessions_completed ?? 0),
+          deal_owner_id,
+          call_centre_deal_owner_id,
+        }
         : {};
 
       return {
@@ -681,8 +681,8 @@ export class OdooService {
                 price_unit: Number(line!.price_unit),
                 analytic_distribution: odooServicePlanTypeId
                   ? {
-                      [odooServicePlanTypeId]: 100,
-                    }
+                    [odooServicePlanTypeId]: 100,
+                  }
                   : {},
               },
             ]),
