@@ -573,31 +573,37 @@ export class OdooService {
 
   async userHandlingProcess(jobId: string, dealOwner: Partial<PublicOwner>, companyId?: string | number): Promise<number | undefined> {
     this.logger.debug(`${this.userHandlingProcess.name} dealOwner=${JSON.stringify(dealOwner?.email)} companyId=${companyId}`);
-    const searchPayload: SearchReadParams = {
-      domain: ['&', ['login', 'ilike', dealOwner?.email ?? ''], '|', ['active', '=', true], ['active', '=', false]],
-      fields: ['display_name', 'login', 'active'],
-    };
 
-    const existingUser = await this.userSearchRead(jobId, searchPayload, 'login');
+    try {
+      const searchPayload: SearchReadParams = {
+        domain: ['&', ['login', 'ilike', dealOwner?.email ?? ''], '|', ['active', '=', true], ['active', '=', false]],
+        fields: ['display_name', 'login', 'active'],
+      };
 
-    if (existingUser?.[0]?.id) return existingUser?.[0].id;
+      const existingUser = await this.userSearchRead(jobId, searchPayload, 'login');
 
-    const groupId = Number(this.configService.get<string>('ODOO_DEFAULT_GROUP_ID') ?? 10);
+      if (existingUser?.[0]?.id) return existingUser?.[0].id;
 
-    const fullName = dealOwner?.firstName && dealOwner?.lastName ? `${dealOwner.firstName} ${dealOwner.lastName}` : (dealOwner?.email ?? '');
-    const createPayload: ValsList = {
-      vals_list: [
-        {
-          login: dealOwner?.email ?? '',
-          name: fullName,
-          company_ids: [Number(companyId)],
-          group_ids: [[groupId]],
-        },
-      ],
-    };
+      const groupId = Number(this.configService.get<string>('ODOO_DEFAULT_GROUP_ID') ?? 10);
 
-    const createdUser = await this.createUser(jobId, createPayload, 'login');
-    return createdUser?.[0];
+      const fullName = dealOwner?.firstName && dealOwner?.lastName ? `${dealOwner.firstName} ${dealOwner.lastName}` : (dealOwner?.email ?? '');
+      const createPayload: ValsList = {
+        vals_list: [
+          {
+            login: dealOwner?.email ?? '',
+            name: fullName,
+            company_ids: [Number(companyId)],
+            group_ids: [[groupId]],
+          },
+        ],
+      };
+
+      const createdUser = await this.createUser(jobId, createPayload, 'login');
+      return createdUser?.[0];
+    } catch (error) {
+      this.logger.error(`${this.userHandlingProcess.name} Error: ${error.message}`);
+      return undefined;
+    }
   }
 
   async buildOdooObjectPayload(
