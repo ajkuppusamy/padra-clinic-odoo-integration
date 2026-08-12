@@ -677,9 +677,9 @@ export class OdooService {
       const serviceType = properties?.properties?.service_type as string;
       const treatmentCategory = properties?.properties?.treatment_category as string;
       const sale_service_type_id = getSaleServiceTypeValue(serviceType);
-      const sale_treatment_category_id = getTreatmentCategoryValue(treatmentCategory);
+      const sale_treatment_category_ids = getTreatmentCategoryValue(treatmentCategory);
       this.logger.debug(
-        `serviceType: ${serviceType}, treatmentCategory: ${treatmentCategory}, sale_service_type_id: ${sale_service_type_id}, sale_treatment_category_id: ${sale_treatment_category_id}`,
+        `serviceType: ${serviceType}, treatmentCategory: ${treatmentCategory}, sale_service_type_id: ${sale_service_type_id}, sale_treatment_category_id: ${sale_treatment_category_ids}`,
       );
       const currencyId = JSON.parse(this.configService.get<string>('ODOO_CURRENCY_CODE_TO_ID_MAP') || '{}')[properties?.properties?.deal_currency_code as string];
       const pricelistMap = JSON.parse(this.configService.get<string>('COMPANY_CURRENCY_TO_PRICELIST_ID_MAP') || '{}');
@@ -697,7 +697,7 @@ export class OdooService {
       const dealProperties = isOdooPropertymap
         ? {
           sale_service_type_id,
-          sale_treatment_category_id: [[6, 0, [sale_treatment_category_id]]],
+          sale_treatment_category_id: [[6, 0, sale_treatment_category_ids]],
           // smr_amount_discount: Number(properties?.properties?.discount_amount ?? 0), // this property is currently not mapped in odoo, need to create custom field and map it in odoo before using this
           no_of_hairs: Number(properties?.properties?.number_of_hairs ?? properties?.properties?.number_of_hairs___cloned_ ?? 0),
           session: Number(properties?.properties?.number_of_sessions ?? 0),

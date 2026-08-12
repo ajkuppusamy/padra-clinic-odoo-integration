@@ -108,11 +108,18 @@ export const loadTreatmentCategoryConfig = (stage: string) => {
   }
 };
 
-export const getTreatmentCategoryValue = (internalName: string): number | null => {
+export const getTreatmentCategoryValue = (internalNames: string): number[] | null => {
   try {
     const treatmentCategoryMap = JSON.parse(process.env.TREATMENT_CATEGORY_MAP || '{}');
 
-    return treatmentCategoryMap?.[internalName] || null;
+    return (
+      internalNames
+        ?.split(';')
+        ?.map((internalName: string) => {
+          return treatmentCategoryMap?.[internalName] || null;
+        })
+        .filter((id: number | null) => id !== null) ?? []
+    );
   } catch (error) {
     logger.error('Error parsing TREATMENT_CATEGORY_MAP', error);
     return null;

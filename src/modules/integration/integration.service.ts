@@ -868,7 +868,9 @@ export class IntegrationService {
     if (contactRead.length) {
       const updatePayload = (await this.odooService.buildOdooObjectPayload(contact, companyId, true, 'contacts', {}, [], undefined, undefined, jobId)) as ValsList;
       await this.hubspotService.updateContactById(jobId, contact.id, { odoo_contact_id: contactRead?.[0]?.id });
+
       await this.odooService.partnerWrite(jobId, { ids: [contactRead?.[0]?.id], vals: updatePayload.vals_list?.[0] }, 'id');
+
       return contactRead?.[0]?.id;
     }
     const writeContactPayload = (await this.odooService.buildOdooObjectPayload(contact, companyId, true, 'contacts', {}, [], undefined, undefined, jobId)) as ValsList;
