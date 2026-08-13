@@ -592,6 +592,7 @@ export class OdooService {
           {
             login: dealOwner?.email ?? '',
             name: fullName,
+            company_id: Number(companyId),
             company_ids: [Number(companyId)],
             group_ids: [[groupId]],
           },
