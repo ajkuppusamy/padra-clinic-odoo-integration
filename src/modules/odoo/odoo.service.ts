@@ -595,6 +595,7 @@ export class OdooService {
             company_id: Number(companyId),
             company_ids: [Number(companyId)],
             group_ids: [[groupId]],
+            active: false,
           },
         ],
       };
