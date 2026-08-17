@@ -1,6 +1,6 @@
-export const toHubspotDateValue = (input: any): number | null => {
+export const toHubspotDateValue = (input) => {
   if (!input) return null;
-  let date: Date;
+  let date;
 
   if (typeof input === 'number') {
     date = new Date(input < 1e12 ? input * 1000 : input);
@@ -35,5 +35,9 @@ export const toHubspotDateValue = (input: any): number | null => {
     return null;
   }
 
-  return isNaN(date.getTime()) ? null : date.getTime();
+  if (isNaN(date.getTime())) return null;
+
+  // Normalize to midnight UTC — HubSpot date properties require this exactly
+  const midnightUtc = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+  return midnightUtc;
 };
