@@ -908,13 +908,19 @@ export class IntegrationService {
 
     const invoiceCreateId = invoiceCreation?.[0];
 
-    const validateInvoice = await this.odooService.paymentInvoiceValidate(
-      jobId,
-      {
-        ids: [invoiceCreateId],
-      },
-      'id',
-    );
+    let validateInvoice;
+
+    try {
+      validateInvoice = await this.odooService.paymentInvoiceValidate(
+        jobId,
+        {
+          ids: [invoiceCreateId],
+        },
+        'id',
+      );
+    } catch (error) {
+      this.logger.error(`[handleOnlinePayment] Invoice validation failed`, error);
+    }
 
     if (!validateInvoice) return await this.handleSkip(jobId, this.handleOdooInvoiceUpsertProcess.name, 'Invoice create validation failed');
 
