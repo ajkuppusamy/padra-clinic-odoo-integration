@@ -41,7 +41,8 @@ export class HubspotService {
     private readonly requestRepository: RequestRepository,
     private readonly responseRepository: ResponseRepository,
     private readonly hubspotLibService: HubspotLibService,
-  ) {}
+  ) { }
+
   async sendSQS(data: HubspotWebhookDto | HubspotWebhookDto[], eventName?: string) {
     this.logger.log('Received webhook payload', {
       isArray: Array.isArray(data),
@@ -683,11 +684,11 @@ export class HubspotService {
         })),
         ...(quoteTemplateId
           ? [
-              {
-                to: { id: quoteTemplateId },
-                types: [{ associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined, associationTypeId: 286 }],
-              },
-            ]
+            {
+              to: { id: quoteTemplateId },
+              types: [{ associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined, associationTypeId: 286 }],
+            },
+          ]
           : []),
       ],
     };

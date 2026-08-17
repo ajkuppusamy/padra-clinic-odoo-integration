@@ -8,7 +8,7 @@ import { HubspotProductDto, HubspotWebhookDto, ProductDto } from './dto';
 @Controller('hubspot')
 // @UseGuards(HubspotAuthGuard)
 export class HubspotController {
-  constructor(private readonly hubspotService: HubspotService) {}
+  constructor(private readonly hubspotService: HubspotService) { }
 
   @Post('webhook')
   @HttpCode(HttpStatus.OK)
@@ -129,6 +129,7 @@ export class HubspotController {
       'file_upload',
     );
   }
+
   @HttpCode(HttpStatus.OK)
   @Get('contacts/:contactId/invoices')
   @ApiParam({

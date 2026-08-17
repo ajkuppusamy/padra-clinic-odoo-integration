@@ -1374,7 +1374,9 @@ export class IntegrationService {
     this.logger.debug(`${this.handlingContactProcess.name} : ${jobId}`);
     const recordId = event?.objectId?.toString() as string;
     const contact = await this.hubspotService.fetchContact(recordId, jobId);
-    await this.odooUpsertContactProcess(jobId, contact);
+
+    // Only update the contact if odoo_contact_id is present. There is no need to create the contact if it is not included in the contact_update webhook.
+    if (contact?.properties?.odoo_contact_id) await this.odooUpsertContactProcess(jobId, contact);
     return await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
   }
 }
