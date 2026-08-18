@@ -163,6 +163,7 @@ export interface CloseServiceWebhook {
   session: number;
   sessions_completed: number;
   timestamp: string;
+  note: string;
 }
 
 export type OdooWebhookEvent =

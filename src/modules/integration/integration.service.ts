@@ -1335,10 +1335,12 @@ export class IntegrationService {
 
     const dateProperty = `prp_session_${completedSession}_date`;
     const statusProperty = `prp_session_${completedSession}_status`;
+    const notesProperty = `prp_session_${completedSession}_notes`;
 
     const properties = {
       [dateProperty]: event.timestamp ? toHubspotDateValue(event.timestamp) : undefined,
       [statusProperty]: 'Completed',
+      [notesProperty]: event?.note || '',
     };
 
     await this.updateDeal(jobId, deal.id, {
