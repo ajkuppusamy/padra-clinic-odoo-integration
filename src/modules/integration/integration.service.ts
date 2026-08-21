@@ -1250,17 +1250,17 @@ export class IntegrationService {
       jobId,
       quotationId: quotation?.[0],
     });
+    
+    // const confirmStatus = (await this.odooService.saleOrderConformation(
+    //   jobId,
+    //   {
+    //     ids: [quotation?.[0]],
+    //     context: {},
+    //   },
+    //   'state',
+    // )) as unknown as boolean;
 
-    const confirmStatus = (await this.odooService.saleOrderConformation(
-      jobId,
-      {
-        ids: [quotation?.[0]],
-        context: {},
-      },
-      'state',
-    )) as unknown as boolean;
-
-    this.logger.verbose(`Sales order Status : ${confirmStatus}`);
+    // this.logger.verbose(`Sales order Status : ${confirmStatus}`);
     return quotation;
   }
 
