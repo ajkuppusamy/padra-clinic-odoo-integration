@@ -993,6 +993,7 @@ export class IntegrationService {
       if (!sales_order_id_v2 && data?.propertyName == 'line_items_created') {
         this.logger.verbose(`Line Items Created Event Detected for Deal ${dealId}, initiating Odoo Quotation Creation Process`);
         const companyId = (await this.getCompanyIdFromPipeline(jobId, context, deal)) as string;
+        this.logger.debug(`Company Id from Pipeline: ${companyId}`);
 
         if (companyId) {
           const payload: SearchReadParams = {
@@ -1008,8 +1009,9 @@ export class IntegrationService {
         // if (!odooServicePlanTypeId) return;
 
         const primaryContact = contacts?.[0];
-
-        const odooContactId = await this.odooUpsertContactProcess(jobId, primaryContact);
+        this.logger.debug(`-- companyId: ${companyId} --`);
+        const odooContactId = await this.odooUpsertContactProcess(jobId, primaryContact, companyId);
+        this.logger.debug(`Odoo Contact Id: ${odooContactId}`);
 
         if (!odooContactId) return await this.handleSkip(jobId, context, 'No associated contact found');
 
