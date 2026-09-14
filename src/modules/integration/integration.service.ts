@@ -860,20 +860,20 @@ export class IntegrationService {
     this.logger.verbose(`Updated ${batchUpdateInput.inputs.length} HubSpot Line Items with Odoo Line Item IDs.`);
   }
 
-  public async odooUpsertContactProcess(jobId: string, contact: SimplePublicObject, companyId?: string): Promise<number | null> {
-    const searchPayload = (await this.odooService.buildOdooObjectPayload(contact, companyId, undefined, 'contacts', {}, [], undefined, undefined, jobId)) as
+  public async odooUpsertContactProcess(jobId: string, contact: SimplePublicObject, companyId?: string, companyName?: string): Promise<number | null> {
+    const searchPayload = (await this.odooService.buildOdooObjectPayload(contact, companyId, undefined, 'contacts', { companyName }, [], undefined, undefined, jobId)) as
       | ValsList
       | SearchReadParams;
     const contactRead = await this.odooService.partnerSearch(jobId, searchPayload as SearchReadParams, 'email');
     if (contactRead.length) {
-      const updatePayload = (await this.odooService.buildOdooObjectPayload(contact, companyId, true, 'contacts', {}, [], undefined, undefined, jobId)) as ValsList;
+      const updatePayload = (await this.odooService.buildOdooObjectPayload(contact, companyId, true, 'contacts', { companyName }, [], undefined, undefined, jobId)) as ValsList;
       await this.hubspotService.updateContactById(jobId, contact.id, { odoo_contact_id: contactRead?.[0]?.id });
 
       await this.odooService.partnerWrite(jobId, { ids: [contactRead?.[0]?.id], vals: updatePayload.vals_list?.[0] }, 'id');
 
       return contactRead?.[0]?.id;
     }
-    const writeContactPayload = (await this.odooService.buildOdooObjectPayload(contact, companyId, true, 'contacts', {}, [], undefined, undefined, jobId)) as ValsList;
+    const writeContactPayload = (await this.odooService.buildOdooObjectPayload(contact, companyId, true, 'contacts', { companyName }, [], undefined, undefined, jobId)) as ValsList;
     const createContact = await this.odooService.partnerCreate(jobId, writeContactPayload, 'email');
     await this.hubspotService.updateContactById(jobId, contact.id, { odoo_contact_id: createContact?.[0] });
     return createContact?.[0];
@@ -995,13 +995,16 @@ export class IntegrationService {
         const companyId = (await this.getCompanyIdFromPipeline(jobId, context, deal)) as string;
         this.logger.debug(`Company Id from Pipeline: ${companyId}`);
 
+        let companyDisplayName: string | undefined;
+
         if (companyId) {
           const payload: SearchReadParams = {
             ids: [Number(companyId)],
             fields: ['display_name', 'name', 'create_date'],
           };
           const companyData = await this.odooService.readCompanyByIds(jobId, payload, 'id');
-          if (companyData?.length) await this.updateDeal(jobId, dealId, { sales_order_company_name: companyData?.[0]?.display_name });
+          companyDisplayName = companyData?.[0]?.display_name;
+          if (companyData?.length) await this.updateDeal(jobId, dealId, { sales_order_company_name: companyDisplayName });
         }
 
         const odooServicePlanTypeId = await this.getAnalyticAccountByServiceType(jobId, context, companyId, deal);
@@ -1010,7 +1013,8 @@ export class IntegrationService {
 
         const primaryContact = contacts?.[0];
         this.logger.debug(`-- companyId: ${companyId} --`);
-        const odooContactId = await this.odooUpsertContactProcess(jobId, primaryContact, companyId);
+        this.logger.debug(`-- companyDisplayName: ${companyDisplayName} --`);
+        const odooContactId = await this.odooUpsertContactProcess(jobId, primaryContact, companyId, companyDisplayName);
         this.logger.debug(`Odoo Contact Id: ${odooContactId}`);
 
         if (!odooContactId) return await this.handleSkip(jobId, context, 'No associated contact found');

@@ -619,7 +619,15 @@ export class OdooService {
       call_centre_deal_owner_id,
       odooServicePlanTypeId,
       user_id,
-    }: { contactId?: number; deal_owner_id?: number; call_centre_deal_owner_id?: number; odooServicePlanTypeId?: string; user_id?: number } = {},
+      companyName,
+    }: {
+      contactId?: number;
+      deal_owner_id?: number;
+      call_centre_deal_owner_id?: number;
+      odooServicePlanTypeId?: string;
+      user_id?: number;
+      companyName?: string;
+    } = {},
     lineItems?: SimplePublicObject[],
     odooQuoteId?: number,
     odooInvoiceId?: string | number,
@@ -647,6 +655,7 @@ export class OdooService {
             email: email ?? '',
             name: [properties?.properties?.firstname, properties?.properties?.lastname].filter(Boolean).join(' '),
             company_id: String(companyId ?? ''),
+            company_name: companyName ?? '',
             autopost_bills: 'never',
             street: properties?.properties?.street ?? '',
             city: properties?.properties?.city ?? '',
