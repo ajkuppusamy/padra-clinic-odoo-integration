@@ -646,7 +646,7 @@ export class OdooService {
 
     if (object === 'contacts') {
       const state = properties?.properties?.state ?? '';
-      const country = properties?.properties?.country ?? '';
+      const country = properties?.properties?.country_list ?? '';
       const stateId = await this.procesState(jobId as string, state as string, 'state');
       const coutryId = await this.processCountry(jobId as string, country as string, 'country');
       return {
