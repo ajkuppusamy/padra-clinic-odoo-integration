@@ -1,0 +1,131 @@
+{
+  "info": {
+    "_postman_id": "849949d6-079f-4940-9433-a532ff9c475b",
+    "name": "Padra Odoo API",
+    "description": "Requests derived from src/libs/odoo/odoo.service.ts and its request interfaces. Set the collection variables before sending requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "odooBaseUrl", "value": "https://your-odoo-api.example.com", "type": "string" },
+    { "key": "odooApiKey", "value": "", "type": "string" },
+    { "key": "companyId", "value": "", "type": "string" },
+    { "key": "searchBaseUrl", "value": "https://your-odoo-search-api.example.com", "type": "string" },
+    { "key": "searchApiKey", "value": "", "type": "string" },
+    { "key": "fileUploadBaseUrl", "value": "https://your-odoo-files-api.example.com", "type": "string" },
+    { "key": "contactId", "value": "", "type": "string" },
+    { "key": "productId", "value": "", "type": "string" },
+    { "key": "quotationId", "value": "", "type": "string" },
+    { "key": "invoiceId", "value": "", "type": "string" },
+    { "key": "refundId", "value": "", "type": "string" },
+    { "key": "appointmentId", "value": "", "type": "string" },
+    { "key": "salesOrderId", "value": "", "type": "string" },
+    { "key": "searchPath", "value": "/search_read", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Contacts",
+      "item": [
+        {
+          "name": "Create contact",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"patient@example.com\",\n  \"name\": \"Jane Doe\",\n  \"company_name\": \"Padra Clinic\",\n  \"phone\": \"+971500000000\",\n  \"address\": \"123 Clinic Street\",\n  \"city\": \"Dubai\",\n  \"state\": \"Dubai\",\n  \"postal_code\": \"00000\",\n  \"country\": \"AE\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{odooBaseUrl}}/contacts"
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["const body = pm.response.json();", "if (body.contact_id) pm.collectionVariables.set('contactId', body.contact_id);"] } }]
+        },
+        { "name": "Get contact", "request": { "method": "GET", "header": [], "url": "{{odooBaseUrl}}/contacts/{{contactId}}" } },
+        { "name": "Update contact", "request": { "method": "PUT", "header": [], "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+971500000001\",\n  \"company_name\": \"Padra Clinic\",\n  \"city\": \"Dubai\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{odooBaseUrl}}/contacts/{{contactId}}" } }
+      ]
+    },
+    {
+      "name": "Products",
+      "item": [
+        { "name": "Create product", "request": { "method": "POST", "header": [], "body": { "mode": "raw", "raw": "{\n  \"product_id\": \"CONSULT-001\",\n  \"name\": \"Initial consultation\",\n  \"price\": 250,\n  \"description\": \"General consultation\",\n  \"type\": \"service\",\n  \"uom\": \"Units\",\n  \"category\": \"Consultations\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{odooBaseUrl}}/products" }, "event": [{ "listen": "test", "script": { "exec": ["const body = pm.response.json();", "if (body.product_id) pm.collectionVariables.set('productId', body.product_id);"] } }] },
+        { "name": "Get product", "request": { "method": "GET", "header": [], "url": "{{odooBaseUrl}}/products/{{productId}}" } },
+        { "name": "Update product", "request": { "method": "PUT", "header": [], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Initial consultation\",\n  \"price\": 275,\n  \"active\": true\n}", "options": { "raw": { "language": "json" } } }, "url": "{{odooBaseUrl}}/products/{{productId}}" } }
+      ]
+    },
+    {
+      "name": "Quotations",
+      "item": [
+        { "name": "Create quotation", "request": { "method": "POST", "header": [], "body": { "mode": "raw", "raw": "{\n  \"contact_id\": \"{{contactId}}\",\n  \"quotation_date\": \"2026-09-14\",\n  \"validity_period\": 30,\n  \"line_items\": [{\n    \"description\": \"Initial consultation\",\n    \"quantity\": 1,\n    \"unit_price\": 250,\n    \"product_id\": \"{{productId}}\",\n    \"tax_rate\": 5\n  }]\n}", "options": { "raw": { "language": "json" } } }, "url": "{{odooBaseUrl}}/quotations" }, "event": [{ "listen": "test", "script": { "exec": ["const body = pm.response.json();", "if (body.quotation_id) pm.collectionVariables.set('quotationId', body.quotation_id);"] } }] },
+        { "name": "Update quotation", "request": { "method": "PUT", "header": [], "body": { "mode": "raw", "raw": "{\n  \"validity_period\": 30,\n  \"line_items\": [{ \"description\": \"Initial consultation\", \"quantity\": 1, \"unit_price\": 250 }]\n}", "options": { "raw": { "language": "json" } } }, "url": "{{odooBaseUrl}}/quotations/{{quotationId}}" } },
+        { "name": "Convert quotation to invoice", "request": { "method": "POST", "header": [], "body": { "mode": "raw", "raw": "{}", "options": { "raw": { "language": "json" } } }, "url": "{{odooBaseUrl}}/quotations/{{quotationId}}/convert" } }
+      ]
+    },
+    {
+      "name": "Invoices",
+      "item": [
+        { "name": "Create invoice", "request": { "method": "POST", "header": [], "body": { "mode": "raw", "raw": "{\n  \"contact_id\": \"{{contactId}}\",\n  \"invoice_date\": \"2026-09-14\",\n  \"due_date\": \"2026-10-14\",\n  \"payment_type\": \"direct_payment\",\n  \"quotation_id\": \"{{quotationId}}\",\n  \"line_items\": [{ \"description\": \"Initial consultation\", \"quantity\": 1, \"unit_price\": 250, \"product_id\": \"{{productId}}\", \"tax_rate\": 5 }]\n}", "options": { "raw": { "language": "json" } } }, "url": "{{odooBaseUrl}}/invoices" }, "event": [{ "listen": "test", "script": { "exec": ["const body = pm.response.json();", "if (body.invoice_id) pm.collectionVariables.set('invoiceId', body.invoice_id);"] } }] },
+        { "name": "Get invoice", "request": { "method": "GET", "header": [], "url": "{{odooBaseUrl}}/invoices/{{invoiceId}}" } },
+        { "name": "Update invoice", "request": { "method": "PUT", "header": [], "body": { "mode": "raw", "raw": "{\n  \"due_date\": \"2026-10-14\",\n  \"line_items\": [{ \"description\": \"Initial consultation\", \"quantity\": 1, \"unit_price\": 250 }]\n}", "options": { "raw": { "language": "json" } } }, "url": "{{odooBaseUrl}}/invoices/{{invoiceId}}" } },
+        { "name": "Get invoice download link", "request": { "method": "GET", "header": [], "url": "{{odooBaseUrl}}/invoices/{{invoiceId}}/download-link" } }
+      ]
+    },
+    {
+      "name": "Payments",
+      "item": [
+        { "name": "Process Tabi Tamara payment", "request": { "method": "POST", "header": [], "body": { "mode": "raw", "raw": "{\n  \"invoice_id\": \"{{invoiceId}}\",\n  \"amount\": 262.5,\n  \"currency\": \"AED\",\n  \"gateway_reference\": \"TABBY-REF-001\",\n  \"payment_link_url\": \"https://example.com/payment/1\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{odooBaseUrl}}/payments/tabi-tamara" } },
+        { "name": "Process offline card payment", "request": { "method": "POST", "header": [], "body": { "mode": "raw", "raw": "{\n  \"invoice_id\": \"{{invoiceId}}\",\n  \"amount\": 262.5,\n  \"card_reference\": \"CARD-REF-001\",\n  \"transaction_reference\": \"TXN-REF-001\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{odooBaseUrl}}/payments/offline-card" } },
+        { "name": "Process cash payment", "request": { "method": "POST", "header": [], "body": { "mode": "raw", "raw": "{\n  \"invoice_id\": \"{{invoiceId}}\",\n  \"amount\": 262.5,\n  \"received_date\": \"2026-09-14\",\n  \"notes\": \"Received at reception\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{odooBaseUrl}}/payments/cash" } },
+        { "name": "Get payment status", "request": { "method": "GET", "header": [], "url": "{{odooBaseUrl}}/payments/status/{{invoiceId}}" } }
+      ]
+    },
+    {
+      "name": "Refunds",
+      "item": [
+        { "name": "Create refund", "request": { "method": "POST", "header": [], "body": { "mode": "raw", "raw": "{\n  \"invoice_id\": \"{{invoiceId}}\",\n  \"refund_date\": \"2026-09-14\",\n  \"reason\": \"Patient cancellation\",\n  \"refund_method\": \"partial\",\n  \"line_items\": [{ \"description\": \"Initial consultation\", \"quantity\": 1, \"unit_price\": 250 }]\n}", "options": { "raw": { "language": "json" } } }, "url": "{{odooBaseUrl}}/refunds" }, "event": [{ "listen": "test", "script": { "exec": ["const body = pm.response.json();", "if (body.refund_id) pm.collectionVariables.set('refundId', body.refund_id);"] } }] },
+        { "name": "Get refund", "request": { "method": "GET", "header": [], "url": "{{odooBaseUrl}}/refunds/{{refundId}}" } },
+        { "name": "List invoice refunds", "request": { "method": "GET", "header": [], "url": "{{odooBaseUrl}}/invoices/{{invoiceId}}/refunds" } }
+      ]
+    },
+    {
+      "name": "Appointments and webhooks",
+      "item": [
+        { "name": "Create appointment", "request": { "method": "POST", "header": [], "body": { "mode": "raw", "raw": "{\n  \"contact_id\": \"{{contactId}}\",\n  \"title\": \"Initial consultation\",\n  \"start_datetime\": \"2026-09-15T10:00:00+04:00\",\n  \"end_datetime\": \"2026-09-15T10:30:00+04:00\",\n  \"location\": \"Padra Clinic\",\n  \"notes\": \"Please arrive 10 minutes early\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{odooBaseUrl}}/appointments" }, "event": [{ "listen": "test", "script": { "exec": ["const body = pm.response.json();", "if (body.appointment_id) pm.collectionVariables.set('appointmentId', body.appointment_id);"] } }] },
+        { "name": "Update appointment", "request": { "method": "PUT", "header": [], "body": { "mode": "raw", "raw": "{\n  \"title\": \"Initial consultation\",\n  \"start_datetime\": \"2026-09-15T10:00:00+04:00\",\n  \"end_datetime\": \"2026-09-15T10:30:00+04:00\",\n  \"status\": \"confirmed\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{odooBaseUrl}}/appointments/{{appointmentId}}" } },
+        { "name": "List configured webhooks", "request": { "method": "GET", "header": [], "url": "{{odooBaseUrl}}/webhooks" } }
+      ]
+    },
+    {
+      "name": "Search API",
+      "description": "All POST requests in this folder use ODOO_SEARCH_API and Bearer ODOO_SEARCH_API_KEY. Change searchPath to any endpoint passed to OdooService.search(), e.g. /res.partner/search_read, /sale.order/create, or /account.move/create.",
+      "item": [
+        { "name": "Search/read (configurable path)", "request": { "method": "POST", "header": [], "body": { "mode": "raw", "raw": "{\n  \"domain\": [[\"email\", \"=\", \"patient@example.com\"]],\n  \"fields\": [\"display_name\", \"email\"],\n  \"limit\": 20,\n  \"offset\": 0\n}", "options": { "raw": { "language": "json" } } }, "url": "{{searchBaseUrl}}{{searchPath}}" } },
+        { "name": "Create records (vals_list)", "request": { "method": "POST", "header": [], "body": { "mode": "raw", "raw": "{\n  \"vals_list\": [{\n    \"name\": \"Example contact\",\n    \"email\": \"patient@example.com\",\n    \"company_id\": \"1\"\n  }]\n}", "options": { "raw": { "language": "json" } } }, "url": "{{searchBaseUrl}}/res.partner/create" } },
+        { "name": "Write sales order", "request": { "method": "POST", "header": [], "body": { "mode": "raw", "raw": "{\n  \"ids\": [123],\n  \"vals\": { \"invoice_ids\": [456] }\n}", "options": { "raw": { "language": "json" } } }, "url": "{{searchBaseUrl}}/sale.order/write" } },
+        { "name": "Search API endpoint reference", "request": { "method": "POST", "header": [], "body": { "mode": "raw", "raw": "{}", "options": { "raw": { "language": "json" } } }, "url": "{{searchBaseUrl}}/res.company/search_read" }, "description": "Other paths used by the application: /search_read, /sale.order/read, /sale.order/action_confirm, /res.partner/write, /account.payment/search_read, /res.country/search_read, /account.tax/read, /res.country.state/search_read, /res.company/read, /sale.order.discount/search_read, /sale.order.discount/create, /sale.order.discount/action_apply_discount, /account.move/create, /account.move/action_share_report_link, /sale.advance.payment.inv/create, /sale.advance.payment.inv/create_invoices, /account.analytic.account/search_read, /account.analytic.plan/search_read, /product.template/search_read, /product.product/search_read, /sale.order/action_share_report_link, /sale.order.line/search_read, /res.users/search_read, /res.users/create." }
+      ]
+    },
+    {
+      "name": "File upload API",
+      "description": "The service currently uses this base URL only to retrieve a sales-order pro-forma PDF. It still sends search bearer authentication.",
+      "item": [
+        { "name": "Get sales order pro-forma PDF", "request": { "method": "GET", "header": [], "url": "{{fileUploadBaseUrl}}/report/pdf/sale.report_saleorder_pro_forma/{{salesOrderId}}" } }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const requestUrl = pm.variables.replaceIn(pm.request.url.toString());",
+          "const isSearchOrFileRequest = requestUrl.startsWith(pm.collectionVariables.get('searchBaseUrl')) || requestUrl.startsWith(pm.collectionVariables.get('fileUploadBaseUrl'));",
+          "if (isSearchOrFileRequest) {",
+          "  pm.request.headers.upsert({ key: 'Authorization', value: `Bearer ${pm.collectionVariables.get('searchApiKey')}` });",
+          "} else {",
+          "  pm.request.headers.upsert({ key: 'X-API-Key', value: pm.collectionVariables.get('odooApiKey') });",
+          "  const companyId = pm.collectionVariables.get('companyId');",
+          "  if (companyId) pm.request.headers.upsert({ key: 'X-Company-Id', value: companyId });",
+          "}",
+          "pm.request.headers.upsert({ key: 'Accept', value: 'application/json' });",
+          "if (pm.request.method !== 'GET') pm.request.headers.upsert({ key: 'Content-Type', value: 'application/json' });"
+        ]
+      }
+    }
+  ]
+}

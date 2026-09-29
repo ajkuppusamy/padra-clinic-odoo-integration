@@ -17,7 +17,10 @@ export const HUBSPOT_OBJECT_PROPERTIES: Record<string, string[]> = {
     'country',
     'hs_country_region_code',
     'phone',
-    'civil_code',
+    'eid_pin',
+    'address',
+    'zip',
+    'street'
   ],
 
   companies: ['name', 'domain', 'industry', 'phone', 'city', 'state', 'country', 'website', 'createdate', 'hs_object_id'],
