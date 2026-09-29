@@ -557,7 +557,7 @@ export class OdooService {
       fields: ['display_name', 'id'],
     };
     const countryData = await this.countrySearch(jobId, payload, property);
-    const id = countryData.find((v) => v.display_name?.toLowerCase() === country?.toLowerCase()?.trim())?.id;
+    const id = countryData.find((v) => v.display_name?.split('(')?.[0]?.toLowerCase()?.trim() === country?.toLowerCase()?.trim())?.id;
     return id ?? '';
   }
 
@@ -567,7 +567,7 @@ export class OdooService {
       fields: ['display_name', 'id'],
     };
     const stateData = await this.stateSearch(jobId, payload, property);
-    const id = stateData.find((v) => v.display_name?.toLowerCase() === state?.toLowerCase()?.trim())?.id;
+    const id = stateData.find((v) => v.display_name?.split('(')?.[0]?.toLowerCase()?.trim() === state?.toLowerCase()?.trim())?.id;
     return id ?? '';
   }
 
@@ -657,7 +657,7 @@ export class OdooService {
             company_id: String(companyId ?? ''),
             company_name: companyName ?? '',
             autopost_bills: 'never',
-            street: properties?.properties?.street ?? '',
+            street: properties?.properties?.address ?? '',
             city: properties?.properties?.city ?? '',
             zip: properties?.properties?.zip ?? '',
             mrn_no: properties?.properties?.mrn_number,
