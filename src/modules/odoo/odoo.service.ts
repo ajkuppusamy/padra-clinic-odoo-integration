@@ -654,8 +654,8 @@ export class OdooService {
           {
             email: email ?? '',
             name: [properties?.properties?.firstname, properties?.properties?.lastname].filter(Boolean).join(' '),
-            ...(companyId ? { company_id: String(companyId ?? '') } : {}),
-            ...(companyName ? { company_name: companyName ?? '' } : {}),
+            // ...(companyId ? { company_id: String(companyId ?? '') } : {}),
+            // ...(companyName ? { company_name: companyName ?? '' } : {}),
             autopost_bills: 'never',
             ...(properties?.properties?.address ? { street: properties?.properties?.address ?? '' } : {}),
             ...(properties?.properties?.city ? { city: properties?.properties?.city ?? '' } : {}),
