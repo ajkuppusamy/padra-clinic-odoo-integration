@@ -1256,7 +1256,7 @@ export class IntegrationService {
       jobId,
       quotationId: quotation?.[0],
     });
-    
+
     // const confirmStatus = (await this.odooService.saleOrderConformation(
     //   jobId,
     //   {

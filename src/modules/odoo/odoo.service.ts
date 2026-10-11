@@ -725,6 +725,7 @@ export class OdooService {
             ...dealProperties,
             company_id: Number(companyId ?? 0),
             partner_id: Number(contactId ?? 0),
+            consultant_id: Number(contactId ?? 0),
             partner_shipping_id: Number(contactId ?? 0),
             partner_invoice_id: Number(contactId ?? 0),
             // warehouse_id: 1,
