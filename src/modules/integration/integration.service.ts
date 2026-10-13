@@ -1022,7 +1022,7 @@ export class IntegrationService {
         this.logger.debug(`total Line Items: ${lineItems.length}`);
         if (!lineItems.length) return await this.handleSkip(jobId, context, 'No Associated LinItems');
 
-        const { hsOwner, dealOwnerPartnerId, callCenterDealOwnerPartnerId } = await this.upsertOwnerPartners(jobId, deal);
+        const { hsOwner, dealOwnerPartnerId, callCenterDealOwnerPartnerId, consultantPartnerId } = await this.upsertOwnerPartners(jobId, deal);
 
         const userId = await this.odooService.userHandlingProcess(jobId, hsOwner as PublicOwner, companyId);
 
@@ -1035,6 +1035,7 @@ export class IntegrationService {
             contactId: odooContactId,
             call_centre_deal_owner_id: callCenterDealOwnerPartnerId,
             deal_owner_id: dealOwnerPartnerId,
+            consultant_id: consultantPartnerId,
             odooServicePlanTypeId: odooServicePlanTypeId as string,
             user_id: userId,
           },
@@ -1199,12 +1200,15 @@ export class IntegrationService {
     callCenterOwner: Partial<PublicOwner>;
     dealOwnerPartnerId?: number;
     callCenterDealOwnerPartnerId?: number;
+    consultantPartnerId?: number;
   }> {
     let hsOwner: Partial<PublicOwner> = {};
     let callCenterOwner: Partial<PublicOwner> = {};
+    let consultantOwner: Partial<PublicOwner> = {};
 
     let dealOwnerPartnerId: number | undefined;
     let callCenterDealOwnerPartnerId: number | undefined;
+    let consultantPartnerId: number | undefined;
 
     if (deal?.properties?.hubspot_owner_id) {
       hsOwner = await this.hubspotService.fetchOwnerById(jobId, deal.properties.hubspot_owner_id as string);
@@ -1212,6 +1216,11 @@ export class IntegrationService {
 
     if (deal?.properties?.call_center_deal_owner) {
       callCenterOwner = await this.hubspotService.fetchOwnerById(jobId, deal.properties.call_center_deal_owner as string);
+    }
+
+    // Consultant Here
+    if (deal?.properties?.consultant) {
+      consultantOwner = await this.hubspotService.fetchOwnerById(jobId, deal.properties.consultant as string);
     }
 
     if (hsOwner?.email) {
@@ -1234,11 +1243,22 @@ export class IntegrationService {
       );
     }
 
+    if (consultantOwner?.email) {
+      consultantPartnerId = Number(
+        await this.odooService.partnerSyncProcess(jobId, {
+          email: consultantOwner.email,
+          firstname: consultantOwner.firstName,
+          lastname: consultantOwner.lastName,
+        }),
+      );
+    }
+
     return {
       hsOwner,
       callCenterOwner,
       dealOwnerPartnerId,
       callCenterDealOwnerPartnerId,
+      consultantPartnerId
     };
   }
 

@@ -21,7 +21,8 @@ export const HUBSPOT_OBJECT_PROPERTIES: Record<string, string[]> = {
     'address',
     'zip',
     'street',
-    'country_list'
+    'country_list',
+    'consultant',
   ],
 
   companies: ['name', 'domain', 'industry', 'phone', 'city', 'state', 'country', 'website', 'createdate', 'hs_object_id'],

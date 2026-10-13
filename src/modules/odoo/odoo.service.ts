@@ -617,6 +617,7 @@ export class OdooService {
       contactId,
       deal_owner_id,
       call_centre_deal_owner_id,
+      consultant_id,
       odooServicePlanTypeId,
       user_id,
       companyName,
@@ -624,6 +625,7 @@ export class OdooService {
       contactId?: number;
       deal_owner_id?: number;
       call_centre_deal_owner_id?: number;
+      consultant_id?: number;
       odooServicePlanTypeId?: string;
       user_id?: number;
       companyName?: string;
@@ -715,6 +717,7 @@ export class OdooService {
           sessions_completed: Number(properties?.properties?.sessions_completed ?? 0),
           deal_owner_id,
           call_centre_deal_owner_id,
+          consultant_id,
           user_id,
         }
         : {};
@@ -725,7 +728,6 @@ export class OdooService {
             ...dealProperties,
             company_id: Number(companyId ?? 0),
             partner_id: Number(contactId ?? 0),
-            consultant_id: dealProperties?.['deal_owner_id'],
             partner_shipping_id: Number(contactId ?? 0),
             partner_invoice_id: Number(contactId ?? 0),
             // warehouse_id: 1,

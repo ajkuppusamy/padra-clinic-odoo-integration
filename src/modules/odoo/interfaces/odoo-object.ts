@@ -6,8 +6,8 @@ export interface BaseObject {
   [key: string]: any;
 }
 
-export interface Product extends BaseObject {}
+export interface Product extends BaseObject { }
 
-export interface Contact extends BaseObject {}
+export interface Contact extends BaseObject { }
 
-export interface Company extends BaseObject {}
+export interface Company extends BaseObject { }
