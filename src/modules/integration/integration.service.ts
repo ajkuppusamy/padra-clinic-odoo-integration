@@ -1155,11 +1155,11 @@ export class IntegrationService {
     let callCenterDealOwnerPartner: Partial<ContactSearchResponse> | undefined;
 
     if (deal?.properties?.hubspot_owner_id) {
-      hsOwner = await this.hubspotService.fetchOwnerById(jobId, deal.properties.hubspot_owner_id as string);
+      hsOwner = await this.hubspotService.fetchOwnerById(jobId, deal.properties.hubspot_owner_id as string) as PublicOwner;
     }
 
     if (deal?.properties?.call_center_deal_owner) {
-      callCenterOwner = await this.hubspotService.fetchOwnerById(jobId, deal.properties.call_center_deal_owner as string);
+      callCenterOwner = await this.hubspotService.fetchOwnerById(jobId, deal.properties.call_center_deal_owner as string) as PublicOwner;
     }
 
     if (hsOwner?.email) {
@@ -1211,16 +1211,16 @@ export class IntegrationService {
     let consultantPartnerId: number | undefined;
 
     if (deal?.properties?.hubspot_owner_id) {
-      hsOwner = await this.hubspotService.fetchOwnerById(jobId, deal.properties.hubspot_owner_id as string);
+      hsOwner = await this.hubspotService.fetchOwnerById(jobId, deal.properties.hubspot_owner_id as string) as PublicOwner;
     }
 
     if (deal?.properties?.call_center_deal_owner) {
-      callCenterOwner = await this.hubspotService.fetchOwnerById(jobId, deal.properties.call_center_deal_owner as string);
+      callCenterOwner = await this.hubspotService.fetchOwnerById(jobId, deal.properties.call_center_deal_owner as string) as PublicOwner;
     }
 
     // Consultant Here
     if (deal?.properties?.consultant) {
-      consultantOwner = await this.hubspotService.fetchOwnerById(jobId, deal.properties.consultant as string);
+      consultantOwner = await this.hubspotService.fetchOwnerById(jobId, deal.properties.consultant as string) as PublicOwner;
     }
 
     if (hsOwner?.email) {

@@ -125,8 +125,14 @@ export class HubspotService {
     );
   }
 
-  public async fetchOwnerById(jobId: string, id: string): Promise<PublicOwner> {
-    return this.executeTrackedRequest(jobId, RequestType.FETCH_OWNER, id, `/owners/${id}`, 'GET', {}, () => this.hubspotLibService.getHubspotOwnerById(id));
+  public async fetchOwnerById(jobId: string, id: string): Promise<PublicOwner | null> {
+    try {
+      const owner = await this.executeTrackedRequest(jobId, RequestType.FETCH_OWNER, id, `/owners/${id}`, 'GET', {}, () => this.hubspotLibService.getHubspotOwnerById(id));
+      return owner;
+    } catch (error) {
+      this.logger.error('Owner not found', { jobId, error });
+      return null;
+    }
   }
 
   public async fetchInvoiceById(jobId: string, InvoiceId: string) {
