@@ -9,7 +9,6 @@ export enum RequestType {
   CREATE_CONTACT = 'create_contact',
   CREATE_INVOICE = 'create_invoice',
   UPDATE_DEAL = 'update_deal',
-  UPDATE_TICKET = 'update_ticket',
   FETCH_DEAL = 'fetch_deal',
   FETCH_CONTACT = 'fetch_contact',
   FETCH_LINEITEM = 'fetch_lineItem',

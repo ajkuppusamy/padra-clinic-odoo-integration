@@ -2,7 +2,7 @@ import { Body, Controller, HttpCode, HttpStatus, Post, Param, UseGuards, Query, 
 import { HubspotService } from './hubspot.service';
 import { HubspotAuthGuard } from '@common/guard';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiHeaders, ApiQuery } from '@nestjs/swagger';
-import { HubspotProductDto, HubspotWebhookDto, ProductDto } from './dto';
+import { HubspotProductDto, HubspotWebhookDto, ProductDto, RefundRequestDto } from './dto';
 
 @ApiTags('Hubspot')
 @Controller('hubspot')
@@ -158,5 +158,16 @@ export class HubspotController {
   ])
   async getContactInvoices(@Param('contactId') contactId: string) {
     return await this.hubspotService.getContactInvoices(contactId);
+  }
+
+  @ApiOperation({ summary: 'Create a Refund Request ticket for a deal' })
+  @ApiParam({ name: 'dealId', required: true, description: 'HubSpot Deal ID' })
+  @ApiBody({ type: RefundRequestDto })
+  @ApiResponse({ status: 200, description: 'Refund Request ticket created successfully' })
+  @ApiResponse({ status: 409, description: 'Refund Request ticket already exists for this deal' })
+  @HttpCode(HttpStatus.OK)
+  @Post('deals/:dealId/refund-requests')
+  async createRefundRequest(@Param('dealId') dealId: string, @Body() body: RefundRequestDto) {
+    return await this.hubspotService.createRefundRequestTicket(dealId, body);
   }
 }

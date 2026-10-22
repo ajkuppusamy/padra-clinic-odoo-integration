@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common';
 import { HubspotService as HubspotLibService } from '@libs/hubspot/hubspot.service';
 import { AwsSqsProducerService } from '@libs/aws_sqs/producer.service';
 import { ConfigService } from '@nestjs/config';
@@ -25,7 +25,7 @@ import { HUBSPOT_OBJECT_PROPERTIES } from '@libs/hubspot/constants/properties';
 import { PaymentCreatedEvent, ProductCreateEvent, ProductUpdateEvent } from '@modules/odoo/interfaces/event.interfaces';
 import { delay } from '@common/utils';
 import { ConvertQuotationResponse } from '@libs/odoo/interfaces';
-import { HubspotProductDto, HubspotWebhookDto } from './dto';
+import { HubspotProductDto, HubspotWebhookDto, RefundRequestDto } from './dto';
 import { PublicOwner } from '@hubspot/api-client/lib/codegen/crm/owners/models/all';
 import { Product } from '@modules/odoo/interfaces';
 import { PaymentMethod } from './dto/quotation-flow.dto';
@@ -403,10 +403,49 @@ export class HubspotService {
     );
   }
 
+  /**
+   * Creates a Refund Request ticket, associates it with the deal and its contacts,
+   * and stores the ticket id on the deal's refund_requested_ticket property.
+   */
+  public async createRefundRequestTicket(dealId: string, data: RefundRequestDto) {
+    const deal = await this.hubspotLibService.getHubspotObjectData(HubspotObjects.DEALS, dealId, ['dealname', 'refund_requested_ticket']);
+    if (!deal?.id) throw new BadRequestException(`Deal ${dealId} not found`);
+    if (deal.properties?.refund_requested_ticket) {
+      throw new ConflictException(`Refund Request ticket ${deal.properties.refund_requested_ticket} already exists for this deal`);
+    }
+
+    const contactAssociations = await this.hubspotLibService.getHubspotAssociations(HubspotObjects.DEALS, dealId, HubspotObjects.CONTACTS);
+    const contactIds = contactAssociations.map((association) => String(association.toObjectId));
+
+    const ticketToDeal: AssociationSpec = { associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined, associationTypeId: 28 };
+    const ticketToContact: AssociationSpec = { associationCategory: AssociationSpecAssociationCategoryEnum.HubspotDefined, associationTypeId: 16 };
+
+    const ticket = await this.hubspotLibService.createHubspotObject(HubspotObjects.TICKETS, {
+      properties: {
+        subject: `Refund Request - ${deal.properties?.dealname ?? dealId}`,
+        content: data.description,
+        hs_pipeline: this.configService.get<string>('HUBSPOT_REFUND_TICKET_PIPELINE') ?? '',
+        hs_pipeline_stage: this.configService.get<string>('HUBSPOT_REFUND_TICKET_STAGE') ?? '',
+        refund_type: data.refundType,
+        refund_amount: String(Number(data.amount)),
+        refund_reason: data.reason,
+        sales_order_reference: data.salesOrder,
+      },
+      associations: [
+        { to: { id: dealId }, types: [ticketToDeal] },
+        ...contactIds.map((id) => ({ to: { id }, types: [ticketToContact] })),
+      ],
+    });
+
+    await this.hubspotLibService.updateHubspotObject(HubspotObjects.DEALS, dealId, { refund_requested_ticket: ticket.id });
+
+    this.logger.log(`Refund Request ticket ${ticket.id} created for deal ${dealId}`);
+    return { success: true, ticketId: ticket.id };
+  }
+
   public async updateTicketById(jobId: string, ticketId: string, properties: Record<string, any>) {
-    return this.executeTrackedRequest(jobId, RequestType.UPDATE_TICKET, ticketId, `/tickets/${ticketId}`, 'PUT', properties, () =>
-      this.hubspotLibService.updateHubspotObject(HubspotObjects.TICKETS, ticketId, properties),
-    );
+    this.logger.debug(`${this.updateTicketById.name} --> ticket : ${ticketId}`, { jobId, properties });
+    return this.hubspotLibService.updateHubspotObject(HubspotObjects.TICKETS, ticketId, properties);
   }
 
   public async searchObjectByType(jobId: string, hubspotObject: HubspotObjects, request: PublicObjectSearchRequest, after?: string, limit?: number) {
