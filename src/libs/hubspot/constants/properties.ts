@@ -94,6 +94,7 @@ export const HUBSPOT_OBJECT_PROPERTIES: Record<string, string[]> = {
     'sales_order_preview_link',
     'sales_order_refund_amount',
     'sales_order_refund_reason',
+    'refund_requested_ticket',
     'sales_order_id_v2',
     'prp_session_1_notes',
     'prp_session_2_notes',

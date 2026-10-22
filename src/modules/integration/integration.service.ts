@@ -465,6 +465,15 @@ export class IntegrationService {
     this.logger.debug(`${this.handlingRefund.name}`);
     const properties = { sales_order_refund_amount: event?.amount ?? '', sales_order_refund_reason: event?.memo ?? '' };
     await this.updateDeal(jobId, dealId, properties);
+
+    const deal = await this.hubspotService.fetchDeal(dealId, jobId);
+    const ticketId = deal?.properties?.refund_requested_ticket;
+    if (ticketId) {
+      await this.hubspotService.updateTicketById(jobId, ticketId, { refund_amount: Number(event?.amount ?? 0) });
+    } else {
+      this.logger.warn(`${this.handlingRefund.name} --> Refund requested ticket not found for deal : ${dealId}`);
+    }
+
     await this.queueRepository.updateStatus(jobId, QueueStatus.COMPLETED);
     return;
   }

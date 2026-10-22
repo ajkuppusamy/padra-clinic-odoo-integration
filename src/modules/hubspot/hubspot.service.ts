@@ -403,6 +403,12 @@ export class HubspotService {
     );
   }
 
+  public async updateTicketById(jobId: string, ticketId: string, properties: Record<string, any>) {
+    return this.executeTrackedRequest(jobId, RequestType.UPDATE_TICKET, ticketId, `/tickets/${ticketId}`, 'PUT', properties, () =>
+      this.hubspotLibService.updateHubspotObject(HubspotObjects.TICKETS, ticketId, properties),
+    );
+  }
+
   public async searchObjectByType(jobId: string, hubspotObject: HubspotObjects, request: PublicObjectSearchRequest, after?: string, limit?: number) {
     return this.executeTrackedRequest(jobId, RequestType.SEARCH, jobId, `${hubspotObject}/search`, 'POST', request, () =>
       this.hubspotLibService.searchObject(hubspotObject, request, { after, limit }),
