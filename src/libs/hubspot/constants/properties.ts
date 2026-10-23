@@ -22,7 +22,6 @@ export const HUBSPOT_OBJECT_PROPERTIES: Record<string, string[]> = {
     'zip',
     'street',
     'country_list',
-    'consultant',
   ],
 
   companies: ['name', 'domain', 'industry', 'phone', 'city', 'state', 'country', 'website', 'createdate', 'hs_object_id'],
@@ -111,6 +110,7 @@ export const HUBSPOT_OBJECT_PROPERTIES: Record<string, string[]> = {
     'prp_session_13_notes',
     'prp_session_14_notes',
     'prp_session_15_notes',
+    'consultant',
   ],
 
   line_items: ['name', 'quantity', 'price', 'amount', 'hs_product_id', 'createdate', 'hs_object_id', 'odoo_product_id', 'odoo_line_item_id', 'odoo_product_unit_price'],
